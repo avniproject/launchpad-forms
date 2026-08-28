@@ -249,7 +249,7 @@ Open questions for the Launchpad team (defaults apply if unanswered by build-day
 
 ## 13. Build-day sequencing (one day, four parallel lanes)
 
-Before 09:00: the reCAPTCHA key pair (set up by Himesh, 28 Aug) is in `avni-infra` — the secret in `configure/group_vars/prod-secret-vars.yml.enc` as `launchpad_forms_recaptcha_secret`, the public site key in `configure/group_vars/prod_vars.yml` as `launchpad_forms_recaptcha_sitekey` — and someone has confirmed both names are present (as of 28 Aug they were not); SSH to the reporting node works for whoever deploys (Himesh or Nupoor — both hold access); AWS CLI and the vault password file on the deploying machine; Bugsnag keys; questions A/B put to the Launchpad team.
+Before 09:00: the deployer can open the reCAPTCHA entry in `vault.avniproject.org` — **"Avni Signup Google Recaptcha"** (set up by Himesh, 28 Aug; check its domain list includes `forms.avniproject.org` and `uat-forms.avniproject.org`). Lane C copies the secret into `avni-infra` `configure/group_vars/prod-secret-vars.yml.enc` as `launchpad_forms_recaptcha_secret` and the public site key into `configure/group_vars/prod_vars.yml` as `launchpad_forms_recaptcha_sitekey` during the 11:30 secrets step. Also: SSH to the reporting node works for whoever deploys (Himesh or Nupoor — both hold access); AWS CLI and the Ansible vault password file on the deploying machine; Bugsnag keys; questions A/B put to the Launchpad team.
 
 09:00–09:30, serialised: `docs/CONTRACT.md` final, repo from the tanuh skeleton, `web/src/fixtures/form-config.json`, push `develop`. Then four worktrees:
 
@@ -273,7 +273,7 @@ Before 09:00: the reCAPTCHA key pair (set up by Himesh, 28 Aug) is in `avni-infr
 
 ## 14. Risks and open items
 
-1. **reCAPTCHA secret not yet in the vault** — the key pair exists (Himesh, 28 Aug) but `prod-secret-vars.yml.enc` had no `launchpad_forms_*` variables when checked the same day. Until `launchpad_forms_recaptcha_secret` is there, the service cannot verify a single submission. Confirm before 09:00.
+1. **reCAPTCHA secret lives in `vault.avniproject.org`** (entry "Avni Signup Google Recaptcha"), not yet in the Ansible vault — `prod-secret-vars.yml.enc` had no `launchpad_forms_*` variables on 28 Aug. Lane C copies it in on build day; until `launchpad_forms_recaptcha_secret` is there the service cannot verify a single submission. If the key's domain list does not include the two new host names, every real submission fails captcha — check that first.
 2. **SSH to the reporting node** — `openchs-infra.pem` is being revoked (`avni-product-ops/context/production-access.md`). Himesh and Nupoor both hold access today; verify at 09:00 for whoever runs the deploy.
 3. **ALB script non-idempotency; unknown instance tag / security group / free priorities** — discover first (§8).
 4. **`exitObservations` NPE** — pinned by a unit test.
