@@ -26,6 +26,6 @@ Both are served from one nginx on Avni's reporting node behind the shared load b
 
 ## Who does what on build day
 
-- **Platform (Himesh + agents):** the page, the service, the infrastructure, UAT and prod deploys.
+- **Platform (Himesh + agents):** the page, the service, the infrastructure, UAT and prod deploys. Nupoor also holds SSH access to the node and can run the deploys.
 - **Launchpad team (Nupoor):** the Avni configuration in the UAT organisation (spec §9, in that order), the two open field questions (spec §10 A/B), the manual walkthrough in the Data Entry App, and the bundle promotion to the prod organisation in the afternoon.
-- **Before 09:00:** whoever owns the website's reCAPTCHA key adds `forms.avniproject.org` and `uat-forms.avniproject.org` to it.
+- **Before 09:00:** the reCAPTCHA secret (key pair set up 28 Aug) is in the `avni-infra` vault as `launchpad_forms_recaptcha_secret` and the site key in `prod_vars.yml` as `launchpad_forms_recaptcha_sitekey` — not there yet as of 28 Aug; and SSH to the reporting node is confirmed for whoever deploys.

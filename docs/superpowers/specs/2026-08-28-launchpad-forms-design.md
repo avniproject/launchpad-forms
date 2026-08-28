@@ -249,7 +249,7 @@ Open questions for the Launchpad team (defaults apply if unanswered by build-day
 
 ## 13. Build-day sequencing (one day, four parallel lanes)
 
-Before 09:00: reCAPTCHA key owner found and `forms.` + `uat-forms.avniproject.org` added to the website's key (or a new pair minted); SSH to the reporting node works; AWS CLI and the vault password file on the deploying machine; Bugsnag keys; questions A/B put to the Launchpad team.
+Before 09:00: the reCAPTCHA key pair (set up by Himesh, 28 Aug) is in `avni-infra` — the secret in `configure/group_vars/prod-secret-vars.yml.enc` as `launchpad_forms_recaptcha_secret`, the public site key in `configure/group_vars/prod_vars.yml` as `launchpad_forms_recaptcha_sitekey` — and someone has confirmed both names are present (as of 28 Aug they were not); SSH to the reporting node works for whoever deploys (Himesh or Nupoor — both hold access); AWS CLI and the vault password file on the deploying machine; Bugsnag keys; questions A/B put to the Launchpad team.
 
 09:00–09:30, serialised: `docs/CONTRACT.md` final, repo from the tanuh skeleton, `web/src/fixtures/form-config.json`, push `develop`. Then four worktrees:
 
@@ -273,8 +273,8 @@ Before 09:00: reCAPTCHA key owner found and `forms.` + `uat-forms.avniproject.or
 
 ## 14. Risks and open items
 
-1. **reCAPTCHA key ownership** — the website's key is domain-scoped; its secret sits in n8n. Blocks the day if unowned.
-2. **`openchs-infra.pem`** is being revoked (`avni-product-ops/context/production-access.md`); the Ansible deploy needs working SSH to the reporting node — verify at 09:00.
+1. **reCAPTCHA secret not yet in the vault** — the key pair exists (Himesh, 28 Aug) but `prod-secret-vars.yml.enc` had no `launchpad_forms_*` variables when checked the same day. Until `launchpad_forms_recaptcha_secret` is there, the service cannot verify a single submission. Confirm before 09:00.
+2. **SSH to the reporting node** — `openchs-infra.pem` is being revoked (`avni-product-ops/context/production-access.md`). Himesh and Nupoor both hold access today; verify at 09:00 for whoever runs the deploy.
 3. **ALB script non-idempotency; unknown instance tag / security group / free priorities** — discover first (§8).
 4. **`exitObservations` NPE** — pinned by a unit test.
 5. **`Address` vs `Address map`** — stay on the default `version`; comment in `avni/client.ts`.
