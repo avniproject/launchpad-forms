@@ -4,6 +4,8 @@ An end-to-end implementation guide for running Launchpad registration, screening
 
 Legend used throughout: **[Avni provides]** · **[You configure in Avni]** · **[You build]** · **[Optional]**
 
+> **Revised 28 Aug 2026 (evening).** The Avni-side model below stands. The *glue* changed: the registration page is served from Avni's own reporting node (the way `tanuh.avniproject.org` is), and the credential-holding proxy is a small service in this repo on the same node — **not** n8n, **not** Lambda, **not** S3 + CloudFront. There is no confirmation email in v1. The field list is frozen to the live Cohort 4 Google Form. The full design, the build-day plan and the reasons are in [`docs/superpowers/specs/2026-08-28-launchpad-forms-design.md`](superpowers/specs/2026-08-28-launchpad-forms-design.md); the exact HTTP contract and the field → concept table are in [`docs/CONTRACT.md`](CONTRACT.md). Sections touched by the revision are marked *(revised 28 Aug)*.
+
 ---
 
 ## Contents
@@ -76,7 +78,7 @@ These decisions shape everything downstream:
 | **Registration directly creates the Subject + program enrolment via the API**, in one proxy call | The API POST is idempotent, so this is safe. No manual import step, no latency, funnel reporting is live from day one. |
 | **The journey is modelled as a Program** | Programs are Avni's construct for exactly this: a longitudinal journey with enrolment, staged encounters, and exit. Enrolment/exit dates and per-cohort separation come for free. |
 | **No Excel/Google Sheets layer in the main flow**; CSV bulk upload kept as a manual fallback only | A sheet adds a manual sync step, a second source of truth, duplicate risk, and reporting lag — and solves nothing the API doesn't. Avni's bulk CSV upload remains available if the proxy is ever down. |
-| **Integration layer is a thin proxy**, not Avni's integration service | Avni's integration service is built for ongoing two-way sync with systems like Bahmni. This need is one-way, one-shot creation — a serverless function (or n8n workflow, see Phase 5) is the right size. |
+| **Integration layer is a thin proxy**, not Avni's integration service *(revised 28 Aug)* | Avni's integration service is built for ongoing two-way sync with systems like Bahmni. This need is one-way, one-shot creation — a small service in this repo, running next to the page on the same node, is the right size (Phase 5; design spec §6). |
 | **No special scalability work** | Even a wildly successful Launchpad cohort is a few thousand registrations; Avni orgs run programs with hundreds of thousands of subjects. The only real "scale" problem is spam, handled by captcha + rate limiting on the proxy. |
 | **Security/privacy: four measures** | (1) Credentials only in the proxy, never the browser. (2) A least-privilege API user that can only register/enrol. (3) Explicit consent text + a DPDP-compliant privacy note on the form — the form collects PII. (4) Captcha + rate limiting. |
 
@@ -167,9 +169,9 @@ This means no status field can ever disagree with the evidence, every status cha
    |---|---|---|
    | `Launchpad Admin` | All privileges + Analytics (Metabase access) | You, program lead |
    | `Launchpad Team` | View/Register/Edit subject on Applicant; Enrol/View/Edit enrolment on Launchpad; View/Schedule/Perform/Edit/Cancel visit on all five encounter types; Analytics for those who need Metabase | Screeners, ops team |
-   | `API Integration` | **Only**: Register subject (Applicant) + Enrol subject (Launchpad). Nothing else. | The proxy's user only |
+   | `API Integration` | **Only**: Edit subject (Applicant) + Enrol subject (Launchpad) — the two privileges the API actually checks; "Register subject" on its own is refused *(corrected 28 Aug)*. Nothing else. | The form service's user only |
 
-4. **Users.** Create human users (`ravi@launchpad`, …) in Launchpad Team, and one integration user `launchpad-api@launchpad` in API Integration with the "User" role. Log in as the integration user once in a browser to clear the forced password change — the API cannot answer that challenge.
+4. **Users.** Create human users (`ravi@launchpad`, …) in Launchpad Team, and one integration user `launchpad-forms@launchpad` in API Integration with the "User" role. In that user's settings turn on **"Is Allowed To Invoke Token Generation API"** — that switch is how the form service gets its token *(revised 28 Aug)*. Log in as the integration user once in a browser to clear the forced password change — the API cannot answer that challenge. Do the same in the UAT organisation (`launchpad-forms@launchpaduat`).
 
 **Test:** a Launchpad Team member can log into the Data Entry App and sees an empty applicant list; the API user logged into the web app can register but sees no admin menus.
 
@@ -201,7 +203,7 @@ This means no status field can ever disagree with the evidence, every status cha
 | Data latency | Whenever someone runs the import | Seconds; funnel dashboards live from day one |
 | Duplicates | Manual de-dup in the sheet before every import | Automatic — idempotent API keyed on email |
 | Failure handling | Silent: bad rows discovered at import time | Applicant sees an error and can retry; proxy retries/queues |
-| Confirmation email | Google Forms' generic receipt | Branded, with the applicant's LP id |
+| Confirmation | Google Forms' generic receipt | On-page success screen with the applicant's reference (email can be added later) |
 | Source of truth | Two (sheet + Avni), which will drift | One |
 | Cohort 5 reuse | Redo the sheet + mapping | Change one env var |
 
@@ -213,9 +215,9 @@ The reference design (`avniproject.org/signup/?source=trial`) is a Gatsby (React
 
 - **Build it as a small Vite + React app** (its own repo, e.g. `avni-launchpad-site`). Match the signup page's look by borrowing its visual language — the avni-website repo is open source, so lift the logo assets, teal palette, button and input styles, and header/footer markup from there into this repo's own components. You're copying the *look*, not sharing code or deployments.
 - Gatsby would work too, but for a single-form site a full static-site-generator framework is overkill — Vite + React builds to the same static bundle with far less machinery. (Plain HTML/CSS/JS is also enough if nobody wants a build step.)
-- Deploys to its own S3 bucket + CloudFront distribution with the custom domain (Route 53 + ACM), per the AWS hosting decision.
+- Served by nginx on Avni's reporting node behind the existing shared load balancer, with the certificate and DNS wired the same way as `tanuh.avniproject.org` — no S3, no CloudFront *(revised 28 Aug; design spec §8)*.
 
-**Also significant:** the existing signup form already posts to an **n8n webhook** (`avniproject.app.n8n.cloud/webhook/avni-signup`) — Avni already operates the exact form → middleware pattern this plan calls a "proxy". See Phase 5: the Launchpad proxy can be a second n8n workflow instead of a new Lambda.
+**Note** *(revised 28 Aug)*: the website's signup form posts to an n8n webhook. That route was considered and **not** taken — n8n was ruled out for product glue on 24 Aug 2026 as hard to maintain, test and review. See Phase 5.
 
 The page itself stays deliberately dumb: client-side validation for UX, a captcha widget, and one `POST` to the proxy. It never talks to Avni, never sees a token. Mirror the Avni registration + enrolment forms field-for-field so the proxy's mapping is 1:1.
 
@@ -225,45 +227,31 @@ The page itself stays deliberately dumb: client-side validation for UX, a captch
 
 **[You build]** — this is the heart of the custom work. Everything below is against Avni's *documented* external API ([API guide](https://avni.readme.io/docs/api-guide), [Swagger spec](https://editor.swagger.io/?url=https://raw.githubusercontent.com/avniproject/avni-server/master/avni-server-api/src/main/resources/api/external-api.yaml)) — not the internal web-app endpoints, which are explicitly not for integration.
 
-### Two ways to run the proxy — pick based on team ownership
+### Where the proxy runs — decided 28 Aug 2026 *(revised)*
 
-The website's trial-signup form already posts to an n8n webhook, so Avni operates n8n in production today. That makes the proxy a choice between:
+The proxy is a **small service in this repo (`server/`)**, running next to the page on Avni's reporting node. nginx serves the page and forwards exactly one write path, `POST /api/submit`, to it; nothing else on the node is reachable from the internet. The service verifies the captcha, holds the integration user's username and password, gets a token, and makes the two Avni calls. It is deployed and promoted (UAT on `main`, prod pinned to a tag) the same way as the Tanuh clinician portal.
 
-- **Option 1 — a second n8n workflow (recommended for consistency):** webhook trigger → validate fields → HTTP node to Cognito for the token (`InitiateAuth`, `USER_PASSWORD_AUTH` — a plain HTTPS call with `X-Amz-Target: AWSCognitoIdentityProviderService.InitiateAuth`, no SDK needed) → HTTP nodes for `POST /api/subject` and `POST /api/programEnrolment` → confirmation email via the n8n account's existing email setup (already used for previous cohorts — proven deliverability, nothing new to configure). n8n gives you the execution log, retries, and an error workflow (its dead-letter equivalent) out of the box, and whoever maintains the avni-signup workflow can maintain this one. At Launchpad volumes, re-authenticating to Cognito per submission is fine — no token cache needed.
-- **Option 2 — AWS Lambda + API Gateway** as detailed below: more code, more control, same AWS account as everything else. Choose this if the team prefers versioned code over n8n workflows, or wants captcha verification and rate limiting done properly in one place (easier in code than in n8n).
+Two routes were considered and dropped:
 
-Either way the contract is identical: the Gatsby page POSTs the form JSON to one URL; the proxy owns credentials, validation, the two Avni calls, failure handling, and the confirmation email. The Lambda details below apply conceptually to both.
+- **A second n8n workflow** — n8n was ruled out for product glue on 24 Aug 2026: hard to maintain, hard to test and review, and its error handling diverges from how the product team works.
+- **AWS Lambda + API Gateway (+ S3 and CloudFront for the page)** — no precedent anywhere in Avni's infrastructure; a new kind of thing to operate for a form that a box we already run can serve.
+
+The contract is the same as before: the page POSTs plain field JSON to one URL; the service owns credentials, validation, the two Avni calls and failure handling. The exact request, responses and field → concept table are in [`docs/CONTRACT.md`](CONTRACT.md); the service design is in the design spec §6.
 
 ### Authentication
 
-Avni's hosted service uses AWS Cognito. The proxy signs in as the integration user and sends the resulting ID token in the `AUTH-TOKEN` header (the same header the Avni web app itself uses). Pool and client IDs are served by your Avni server at `GET /idp-details`.
+*(revised 28 Aug)* Avni's own token endpoint does the Cognito work for us. `POST {AVNI_BASE_URL}/api/user/generateToken` with `{ "username", "password" }` returns `{ "token" }` — a real ID token — for any user whose settings have **"Is Allowed To Invoke Token Generation API"** switched on (Phase 2, step 4). The endpoint is public by design, so the service needs no AWS SDK, no pool or client IDs, and no AWS credentials: one HTTPS call, then the token goes in the `AUTH-TOKEN` header of the two Avni calls (the same header the Avni web app uses).
 
-```js
-// registration-proxy: auth.js (Node)
-import {
-  CognitoIdentityProviderClient, InitiateAuthCommand
-} from "@aws-sdk/client-cognito-identity-provider";
+```http
+POST {AVNI_BASE_URL}/api/user/generateToken
+Content-Type: application/json
 
-let cached = { token: null, expiresAt: 0 };
+{ "username": "launchpad-forms@launchpad", "password": "…from the service's secret file…" }
 
-export async function getAvniToken() {
-  if (cached.token && Date.now() < cached.expiresAt) return cached.token;
-  const client = new CognitoIdentityProviderClient({ region: process.env.AVNI_REGION });
-  const res = await client.send(new InitiateAuthCommand({
-    AuthFlow: "USER_PASSWORD_AUTH",
-    ClientId: process.env.AVNI_COGNITO_CLIENT_ID,   // from GET /idp-details
-    AuthParameters: {
-      USERNAME: "launchpad-api@launchpad",
-      PASSWORD: process.env.AVNI_API_PASSWORD
-    }
-  }));
-  cached = {
-    token: res.AuthenticationResult.IdToken,
-    expiresAt: Date.now() + 50 * 60 * 1000          // tokens last ~1h; refresh at 50min
-  };
-  return cached.token;
-}
+→ { "token": "eyJ…" }
 ```
+
+The service caches the token for 50 minutes (they last about an hour). If Avni answers 401, it fetches a fresh token once and retries that one call once. The username and password live only in the service's environment file on the node, which is vault-encrypted in `avni-infra`.
 
 ### Creating the subject and enrolment
 
@@ -305,9 +293,12 @@ AUTH-TOKEN: {token}
     "Cohort": "Cohort 4 – Eastern India",
     "How did you hear about Launchpad": "Social media",
     "Proposal summary": "…"
-  }
+  },
+  "exitObservations": {}
 }
 ```
+
+*(added 28 Aug)* `"exitObservations": {}` is **required** on every enrolment call, and `"observations": {}` on every call even when empty — avni-server reads both without a null check and answers 500 otherwise. The service's tests pin this.
 
 ### Duplicates and double-submits — solved by one design choice
 
@@ -320,8 +311,8 @@ Avni's documented behaviour: **POST is idempotent** — it creates the entity if
 ### Failure handling
 
 - **Validate before calling Avni** (email format, required fields, coded values in the allowed set) so Avni 4xx responses are rare and mean a bug, not user error.
-- **Avni unreachable / 5xx:** retry 2–3× with backoff; if still failing, write the payload to a durable dead-letter store (a queue, or even one DynamoDB/Firestore row per failure) and show the applicant "Registration received — you'll get a confirmation email shortly." A small replay script re-POSTs the dead letters — idempotency makes replays always safe.
-- **Tracking success:** the proxy logs every submission with outcome; the *system of record* check is a Metabase question — registrations per day — that ops eyeballs during the registration window. Send the confirmation email only after Avni returns 200, so "applicant got an email" ⇔ "subject exists in Avni".
+- **Avni unreachable / 5xx:** retry 2–3× with backoff; if still failing, append the payload to a dead-letter file on the node (one JSON line per failure) and show the applicant the success screen with a reference — the application *is* safely captured. A small replay script re-POSTs the dead letters; idempotency makes replays safe, but a replay overwrites anything the applicant re-submitted since, so replay the same day *(revised 28 Aug)*.
+- **Tracking success:** the service logs every submission with its outcome (no personal data in the log — an email hash and the organisation name); the *system of record* check is a Metabase question — registrations per day — that ops eyeballs during the registration window. Errors reach Bugsnag.
 
 ### Security checklist for the proxy
 
@@ -417,7 +408,7 @@ group by e."cohort";
 
 | # | Area | Test | Pass criterion |
 |---|---|---|---|
-| 1 | Registration | Submit valid form | Subject + enrolment in Data Entry App ≤ 1 min; confirmation email received |
+| 1 | Registration | Submit valid form | Subject + enrolment in Data Entry App ≤ 1 min; success screen shows a reference |
 | 2 | Registration | Missing/invalid fields, bad email | Rejected at proxy with a clear message; nothing created in Avni |
 | 3 | Duplicates | Same email twice (incl. double-click and case/whitespace variants) | Exactly one subject, one enrolment |
 | 4 | Duplicates | Same email, same cohort, changed answers | Existing record updated, not duplicated |
@@ -441,8 +432,8 @@ group by e."cohort";
 - [ ] All Phase 8 tests pass on the production org; test/demo subjects voided or clearly named
 - [ ] Integration user password rotated post-testing and stored only in the proxy's secret store
 - [ ] Registration page on its final domain, HTTPS, captcha keys production-mode
-- [ ] Proxy deployed with production env (Avni URL, cohort = "Cohort 4", open/close dates); dead-letter alerting wired to email/Slack
-- [ ] Confirmation email sending verified through the existing n8n email setup (send a test to a few external inboxes — Gmail, Outlook — to confirm it lands)
+- [ ] Form service deployed with production env (Avni URL, cohort, open/close dates); `/healthz` green behind the load balancer; a deliberate test error reaches Bugsnag
+- [ ] Success-screen copy checked — there is no confirmation email in v1 (design spec, decision 4)
 - [ ] Privacy note + consent text reviewed (DPDP); data-retention decision recorded
 - [ ] Team users created, passwords set, one dry-run screening done by each screener
 - [ ] Metabase dashboards live; registration-target number configured; leadership has access
@@ -457,9 +448,9 @@ group by e."cohort";
 | Risk | Impact | Mitigation (built into this design) |
 |---|---|---|
 | Registration spike / spam bots | Junk subjects pollute the funnel | Captcha + rate limiting; least-privilege API user; voiding cleans up stragglers |
-| Proxy or Avni down during the window | Lost applications | Dead-letter store + idempotent replay; CSV bulk-upload fallback; "email only on success" keeps promises honest |
+| Proxy or Avni down during the window | Lost applications | Dead-letter file + idempotent replay; CSV bulk-upload fallback; the success screen shows a reference either way, so the applicant never retypes |
 | Same person, two email addresses | Duplicate applicant | Phone-number duplicate report in Metabase; manual void/merge |
-| Cognito token/password drift (expiry, forced reset) | All registrations fail | Token cache with refresh; password never set to expire for the integration user; test #7; dead-letter alert catches it within minutes |
+| Token/password drift (expiry, forced reset) | All registrations fail | Token cache with refresh; password never set to expire for the integration user; test #7; Bugsnag reports the first failure within minutes and the dead-letter file keeps the applications |
 | Form changed after launch | ETL schema churn; Metabase refresh only handles *new* entity types | Freeze forms before launch (Phase 3 test); additive changes only during the window |
 | Concept renamed casually | Reporting columns shift; proxy payload keys break | Treat concept names as an API contract; document them; never rename mid-cohort |
 | ETL lag misread as data loss | Panic during launch day | Set the expectation: Data Entry App is real-time, Metabase is hourly |
@@ -470,44 +461,38 @@ group by e."cohort";
 
 ## Technology stack for what you build
 
-| Piece | Recommendation | Why |
+*(revised 28 Aug)*
+
+| Piece | Decision | Why |
 |---|---|---|
-| Registration page | **Standalone Vite + React app in its own repo**, styled to match avniproject.org/signup (borrow logo/palette/component styles from the open-source avni-website repo); own S3 bucket + CloudFront + custom domain | Separate site by decision — independent deploys, its own URL, room to grow into a Launchpad mini-site; Vite is the lightest way to a static React bundle |
-| Proxy | **n8n workflow** (recommended — the website's signup already posts to `avniproject.app.n8n.cloud`, so this pattern is in production) or **AWS Lambda + API Gateway** with secrets in SSM/Secrets Manager | n8n: zero new infra, existing ownership, built-in execution log + error workflow. Lambda: versioned code, better for captcha/rate limiting. Same contract either way |
-| Dead-letter store | **SQS** (native Lambda DLQ) or a DynamoDB table | Durable replayable payloads; volume is tiny; both are first-class Lambda integrations |
-| Captcha | Cloudflare Turnstile (or reCAPTCHA v3) | Free, invisible to most users, server-side verifiable |
-| Confirmation email | **n8n** — sent from the existing n8n account's email node, as done in previous cohorts | Avni does not email applicants on registration — this gap is filled by the same n8n setup already proven in earlier Launchpad cohorts; nothing new to configure |
+| Registration page | **Vite + React + MUI static page in this repo (`web/`)**, styled like avniproject.org/signup (logo, orange, card and input styles lifted from the open-source avni-website repo); served by nginx on Avni's reporting node behind the shared load balancer | The `tanuh.avniproject.org` pattern, already in production and deployed by `avni-infra`; no new hosting to operate |
+| Proxy | **A small Node service in this repo (`server/`)** on the same node; nginx forwards only `POST /api/submit` to it; secrets in a vault-encrypted environment file | Versioned, testable code the team maintains; n8n ruled out 24 Aug 2026; Lambda has no precedent here |
+| Avni auth | `POST /api/user/generateToken` with the integration user's username and password | Avni does the Cognito work; no AWS SDK or credentials in the service |
+| Dead-letter store | A JSON-lines file on the node + a replay script | A few hundred submissions over four weeks; a queue would take longer to build than any outage it protects against |
+| Captcha | Google reCAPTCHA v2, verified by the service | The website's signup already uses it; the same key can cover the new host names |
+| Abuse control | nginx rate limiting by real client IP, honeypot field, registration window enforced by the service | All in front of Avni, which has none of its own |
+| Confirmation | Success screen with a reference — **no email in v1** | Avni cannot send email; WhatsApp via Glific can be switched on later with no code |
+| Observability | Bugsnag (page + service), PostHog funnel events, nginx access log, service journal, `/healthz` | What Avni already runs; nothing new to stand up |
 | Everything else | Avni hosted service + its Metabase | Zero infrastructure for the entire tracking and reporting layer |
 
 ---
 
 ## Phased plan with dependencies
 
-The Cohort 4 window is already open on the Google Form and closes **Sep 25, 2026** — about four weeks out. The plan below fits, but tightly; the Google Form keeps collecting in parallel, and the import script (Phase 5) guarantees nothing is lost regardless of when the new page goes live. If the timeline slips, the fallback posture is: run Cohort 4 registration entirely on the Google Form + import script, and launch the public page for Cohort 5 — everything else (org, data model, Data Entry workflow, Metabase) is unaffected.
-
-| Week | Workstream | Depends on |
-|---|---|---|
-| 1 | Phase 1 workflow sign-off · request org creation with analytics enabled | — |
-| 1–2 | Phase 2 org setup (locations, groups, users) · Phase 3 concepts + subject type + program + forms | Org exists; workflow signed off |
-| 2 | Manual end-to-end walkthrough in Data Entry App (the Phase 3 test) | Forms complete — **gate: freeze forms here** |
-| 2–3 | Phase 4–5 registration page + proxy against the frozen forms | Concept names frozen; integration user created |
-| 3 | Phase 7 Metabase setup + funnel/registration dashboards | ETL running; a few test registrations present |
-| 4 | Phase 8 full test pass · Phase 6 team training/dry run | Everything above |
-| 4–5 | Phase 9 go-live: soft launch → public announcement | Checklist green |
-| Cohort 5, later | Add "Cohort 5" answer · flip proxy env var · reopen form | ~One day, by design |
+*(revised 28 Aug)* The Cohort 4 window is open on the Google Form and closes **25 Sep 2026, 11:59 PM IST**. The build is now a **one-day, four-lane effort** — page, service, infrastructure, and the Avni configuration in parallel, integrating at 14:00, UAT live by late afternoon, prod up and soft-launched by evening — laid out hour by hour in the design spec §13. The Google Form keeps collecting throughout; the import script (day 2+) merges those applications into Avni, keyed on email, so nothing is lost whichever day the page goes public. Metabase dashboards (Phase 7), team training (Phase 6) and the full test pass (Phase 8) follow in the days after. Cohort 5 later: add the coded answer, change one environment variable, reopen the form — about a day, by design.
 
 ---
 
 ## Decisions to resolve before development starts
 
-1. **Identity key:** email (recommended) or phone as the de-duplication key? Determines the External ID scheme — hard to change after launch.
-2. **Registration form fields, final list** — including which are mandatory, and the exact coded answer sets (states? channels? categories?). Freezing this gates the proxy build.
+1. **Identity key — decided 28 Aug:** email. The External ID is the trimmed, lower-cased contact email.
+2. **Registration form fields — decided 28 Aug:** the web form mirrors the live Cohort 4 Google Form (24 questions, all mandatory; design spec §10 and `docs/CONTRACT.md` §5). Two small choices remain with the Launchpad team: keep *Headquarters* as one field or split it into City + State (state-wise dashboards need the split); keep *Annual budget* as free text or use bands.
 3. **Screening rubric:** criteria, score ranges, and what score/decision combination means "shortlisted". Also: single screener per application, or two with reconciliation (→ approval workflow yes/no)?
-4. **Cohort 4 registration window** — closes Sep 25, 2026 per the live Google Form; confirm whether the new page replaces the Google Form mid-window or launches for Cohort 5. Also set the registration **target** number (drives the target-vs-actual dashboard).
+4. **Cohort 4 registration window** — closes 25 Sep 2026, 11:59 PM IST per the live Google Form. Still to confirm: once the page is live, is the Google Form redirected to it, or do both stay open with a daily import? Also set the registration **target** number (drives the target-vs-actual dashboard).
 5. **Journey shape after selection:** how many sessions, milestone cadence, and what "completed" formally requires — determines the Session/Milestone/Completion form details.
 6. **Consent + privacy text** and retention policy for non-selected applicants' data (DPDP review).
-7. **Proxy runtime: n8n workflow or Lambda?** The website's signup already runs through n8n (`avniproject.app.n8n.cloud/webhook/avni-signup`), which argues for a second workflow there; Lambda gives versioned code and easier captcha/rate limiting. Decide with whoever owns the existing n8n instance. Remaining AWS specifics either way: region, DNS ownership for the registration URL, and who's on-call for failure alerts during the window.
-8. **Confirmation email** sender domain and copy.
+7. **Proxy runtime — decided 28 Aug:** neither. A small service in this repo runs next to the page on Avni's reporting node; DNS and the certificate follow the `tanuh.avniproject.org` pattern; the platform conductor is on call during the window. Still needed before build day: whoever owns the website's reCAPTCHA key adds `forms.avniproject.org` and `uat-forms.avniproject.org` to it.
+8. **Confirmation email — decided 28 Aug:** none in v1; the applicant sees a success screen with a reference. Email or WhatsApp can be added later without touching the form.
 9. **Org naming:** final organisation name and username suffix (cosmetic but permanent).
 10. **Re-application policy:** may Cohort-4 rejects apply to Cohort 5? (The model supports it either way; the proxy can enforce the policy.)
 
