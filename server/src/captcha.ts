@@ -49,10 +49,18 @@ async function verifyEnterprise(token: string, e: Env): Promise<boolean> {
   const url =
     `https://recaptchaenterprise.googleapis.com/v1/projects/${encodeURIComponent(e.RECAPTCHA_PROJECT_ID)}` +
     `/assessments?key=${encodeURIComponent(e.RECAPTCHA_API_KEY)}`;
+  // A website (HTTP-referrer) restriction on the API key cannot constrain a
+  // server-to-server call — there is no referrer, so Google blocks it, and
+  // sending one satisfies the check without providing any protection (anyone
+  // holding the key can send the same header). It is used here because the
+  // node has no stable IP for an IP restriction, which is the setting that
+  // would actually protect the key. Empty by default: only sent when set.
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (e.RECAPTCHA_REFERER) headers.Referer = e.RECAPTCHA_REFERER;
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ event: { token, siteKey: e.RECAPTCHA_SITE_KEY, expectedAction: e.RECAPTCHA_ACTION } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
