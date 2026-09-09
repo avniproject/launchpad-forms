@@ -49,7 +49,7 @@ CircleCI is now the CI, matching the rest of the Avni repos.
 | 2 | Bugsnag projects + keys | Team | ☑ **done** — browser `314a2520…` in `prod_vars.yml`, Node `c2c9febf…` in the vault |
 | 3 | **Real reCAPTCHA secret + site key**; confirm the domain list covers `forms.avniproject.org` | Lane C + Google admin owner | ☐ **blocking** — until then `verifyCaptcha` fails closed and no real submission can succeed |
 | 4 | Dead-letter alerting to email/Slack; interim: daily `wc -l` (see RUNBOOK) | Ops | ☐ day-2 |
-| 5 | **Rotate the UAT integration password** (`p@ssw0rd`, passed through chat); create the prod org + user with a strong password | Nupoor | ☐ **blocking for prod** |
+| 5 | **Rotate the UAT integration password — COMPROMISED.** It was committed to this public repo in plaintext on 9 Sep 2026 (commit `d8c8df4`) and remains in git history; rotation is a security fix, not housekeeping. Also create the prod org + user with a strong password | Nupoor | ☐ **blocking** |
 | 6 | Updated banner image for "West and East India" (page still ships the Eastern-India banner) | Launchpad team | ☐ pending |
 | 7 | UAT → prod bundle export/import + prod org Metabase setup | Nupoor | ☐ — see the bundle-import hazard below |
 | 8 | Cohort 4 Google Form → Avni import script | Day-2 | ☐ not started |
