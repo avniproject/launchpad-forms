@@ -1,5 +1,14 @@
 # launchpad-forms
 
+**Live form: <https://forms.avniproject.org/k9m4x7qp2vhd>**
+
+A form is reachable only at `/<code>`. The bare domain serves no form, and an
+unknown or retired code is answered identically to a missing one, so codes
+cannot be probed. The code above is a placeholder — replace it in
+`server/src/forms/registry.ts` before the link goes out; changing it retires
+the old URL immediately. This is obscurity, not authentication: a code that
+leaks is public.
+
 The public signup page for the **Avni Launchpad** cohort programme — `forms.avniproject.org`. An organisation fills one form, with no login; the submission becomes an Applicant and a Launchpad enrolment in the `Avni Launchpad` organisation on Avni, and the team takes it from there in the Data Entry App and Metabase.
 
 ## Start here
