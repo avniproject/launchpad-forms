@@ -102,10 +102,14 @@ export function registerSubmit(app: FastifyInstance): void {
           log("dead_letter_failed", { avniStatus: err.status, error: String(writeErr) });
           return reply.code(500).send({ code: "INTERNAL" });
         }
-        // A 4xx from Avni means OUR configuration is wrong (e.g. a renamed
-        // concept) — every submission will fail the same way. Page ops.
-        if (err.status !== null && err.status < 500) {
-          notify(err, { submissionId, avniStatus: err.status });
+        // Configuration errors mean every submission will fail identically
+        // until a human fixes something — a renamed concept (4xx), or a bad
+        // integration password / missing token-generation privilege ("auth").
+        // Both queue silently behind a success screen, so both must page.
+        // Transient 5xx and network failures do not: the retries and the
+        // dead-letter file cover those, and paging would cry wolf.
+        if (err.kind === "auth" || (err.status !== null && err.status < 500)) {
+          notify(err, { submissionId, avniStatus: err.status, kind: err.kind });
         }
         log("queued", { avniStatus: err.status, error: err.message });
         return reply.code(202).send({ code: "QUEUED", reference: `LP-Q-${shortHex(submissionId)}` });

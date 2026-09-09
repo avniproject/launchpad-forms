@@ -7,15 +7,23 @@
 //   - stay on the default API version ("Address" is a title lineage string;
 //     version>=3 would demand "Address map" instead — do not send ?version)
 import type { Env } from "../env.js";
-import { getToken, clearToken } from "./token.js";
+import { getToken, clearToken, TokenError } from "./token.js";
 import { REGISTRATION_CONCEPTS, ENROLMENT_CONCEPTS } from "../mapping/launchpad-cohort.map.js";
 import type { FieldValues } from "../validation/schema.js";
+
+// Why the call failed, which decides whether it pages. "auth" and a 4xx are
+// configuration errors — every submission will fail identically until a human
+// fixes something, so they must page. "network" and 5xx are outages the
+// retries and the dead-letter file already cover; paging on those would cry
+// wolf on every blip.
+export type AvniErrorKind = "auth" | "http" | "network";
 
 export class AvniError extends Error {
   constructor(
     message: string,
     public readonly status: number | null,
     public readonly responseBody: string,
+    public readonly kind: AvniErrorKind = "http",
   ) {
     super(message);
     this.name = "AvniError";
@@ -111,7 +119,11 @@ async function avniPost(path: string, payload: unknown, e: Env): Promise<AvniRes
     try {
       token = await getToken(e);
     } catch (err) {
-      throw new AvniError(`Avni auth failed: ${String(err)}`, null, "");
+      // A rejected credential is a config error that must page — it would
+      // otherwise queue every submission in silence behind a success screen.
+      // Avni merely being unreachable is not; keep them apart.
+      const kind = err instanceof TokenError ? err.kind : "network";
+      throw new AvniError(`Avni auth failed: ${String(err)}`, null, "", kind);
     }
     let res: Response;
     try {
@@ -126,7 +138,7 @@ async function avniPost(path: string, payload: unknown, e: Env): Promise<AvniRes
         await new Promise((r) => setTimeout(r, backoff[attempt++]));
         continue;
       }
-      throw new AvniError(`Avni unreachable: ${String(err)}`, null, "");
+      throw new AvniError(`Avni unreachable: ${String(err)}`, null, "", "network");
     }
 
     // Drain before retrying: undici holds the socket open until an unread
@@ -144,7 +156,7 @@ async function avniPost(path: string, payload: unknown, e: Env): Promise<AvniRes
     }
 
     const text = await res.text();
-    if (!res.ok) throw new AvniError(`Avni ${path} HTTP ${res.status}`, res.status, text.slice(0, 2000));
+    if (!res.ok) throw new AvniError(`Avni ${path} HTTP ${res.status}`, res.status, text.slice(0, 2000), "http");
 
     let body: Record<string, unknown> = {};
     try {
