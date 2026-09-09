@@ -5,6 +5,10 @@ export interface Env {
   AVNI_USERNAME: string;
   AVNI_PASSWORD: string;
   RECAPTCHA_SECRET: string;
+  RECAPTCHA_PROJECT_ID: string;
+  RECAPTCHA_SITE_KEY: string;
+  RECAPTCHA_API_KEY: string;
+  RECAPTCHA_MIN_SCORE: number;
   RECAPTCHA_BYPASS_TOKEN: string;
   BUGSNAG_KEY: string;
   RELEASE_STAGE: string;
@@ -26,6 +30,13 @@ export function env(): Env {
     AVNI_USERNAME: e.AVNI_USERNAME ?? "",
     AVNI_PASSWORD: e.AVNI_PASSWORD ?? "",
     RECAPTCHA_SECRET: e.RECAPTCHA_SECRET ?? "",
+    // reCAPTCHA Enterprise (Google Cloud). All three must be set to enable it.
+    RECAPTCHA_PROJECT_ID: e.RECAPTCHA_PROJECT_ID ?? "",
+    RECAPTCHA_SITE_KEY: e.RECAPTCHA_SITE_KEY ?? "",
+    RECAPTCHA_API_KEY: e.RECAPTCHA_API_KEY ?? "",
+    // Only applied when the assessment actually returns a score (score-type
+    // keys). Checkbox keys return validity alone.
+    RECAPTCHA_MIN_SCORE: Number(e.RECAPTCHA_MIN_SCORE ?? 0.5),
     RECAPTCHA_BYPASS_TOKEN: e.RECAPTCHA_BYPASS_TOKEN ?? "",
     BUGSNAG_KEY: e.BUGSNAG_KEY ?? "",
     // Separate from NODE_ENV: both UAT and prod run NODE_ENV=production,
