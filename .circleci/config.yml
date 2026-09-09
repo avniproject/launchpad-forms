@@ -1,0 +1,85 @@
+# CircleCI owns build and test for this repo, matching avni-server, avni-webapp,
+# avni-client, avni-etl and integration-service. GitHub Actions is kept only for
+# project-board automation in those repos; `.github/workflows/ci.yml` here still
+# duplicates these jobs and should be deleted once this pipeline has run green.
+#
+# The two packages are independent (no npm workspaces), so they build in
+# parallel and neither can break the other's cache.
+version: 2.1
+
+executors:
+  node:
+    docker:
+      # Pinned to .nvmrc — the same major the Ansible role installs on the node.
+      - image: cimg/node:24.4.1
+    working_directory: ~/launchpad-forms
+
+jobs:
+  web:
+    executor: node
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-web-{{ checksum "web/package-lock.json" }}
+      - run:
+          name: Install
+          command: cd web && npm ci
+      - save_cache:
+          key: v1-web-{{ checksum "web/package-lock.json" }}
+          paths:
+            - web/node_modules
+      - run:
+          name: Lint
+          command: cd web && npm run lint
+      - run:
+          name: Typecheck
+          command: cd web && npm run typecheck
+      - run:
+          name: Build
+          command: cd web && npm run build
+      # The node currently runs `npm ci && vite build` itself, which is why it
+      # is a t3.medium. Persisting the bundle here is the first half of moving
+      # that build off the box; a deploy job can then ship this artifact and
+      # the instance drops to t3.small.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - web/dist
+
+  server:
+    executor: node
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-server-{{ checksum "server/package-lock.json" }}
+      - run:
+          name: Install
+          command: cd server && npm ci
+      - save_cache:
+          key: v1-server-{{ checksum "server/package-lock.json" }}
+          paths:
+            - server/node_modules
+      - run:
+          name: Lint
+          command: cd server && npm run lint
+      - run:
+          name: Typecheck
+          command: cd server && npm run typecheck
+      - run:
+          name: Test
+          command: cd server && npm test
+      - run:
+          name: Build
+          command: cd server && npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - server/dist
+
+workflows:
+  build:
+    jobs:
+      - web
+      - server

@@ -80,18 +80,28 @@ export function registerSubmit(app: FastifyInstance): void {
       return reply.code(200).send({ code: "CREATED", reference });
     } catch (err) {
       if (err instanceof AvniError) {
-        await appendDeadLetter(
-          {
-            submissionId,
-            receivedAt: new Date().toISOString(),
-            cohort: e.COHORT,
-            payload: { subject, enrolment },
-            // First line of Avni's response — usually names the exact problem
-            // (e.g. "Concept with name=X not found") without needing a replay.
-            error: { message: err.message, status: err.status, responseBody: err.responseBody.split("\n")[0].slice(0, 300) },
-          },
-          e,
-        );
+        try {
+          await appendDeadLetter(
+            {
+              submissionId,
+              receivedAt: new Date().toISOString(),
+              cohort: e.COHORT,
+              payload: { subject, enrolment },
+              // First line of Avni's response — usually names the exact problem
+              // (e.g. "Concept with name=X not found") without needing a replay.
+              error: { message: err.message, status: err.status, responseBody: err.responseBody.split("\n")[0].slice(0, 300) },
+            },
+            e,
+          );
+        } catch (writeErr) {
+          // The 202 below promises the application is durably captured. If the
+          // write failed (unwritable DEAD_LETTER_PATH, full disk) that promise
+          // is false, so do NOT claim success — page ops and let the applicant
+          // retry while their answers are still in the form.
+          notify(writeErr, { submissionId, stage: "dead_letter_write", avniStatus: err.status });
+          log("dead_letter_failed", { avniStatus: err.status, error: String(writeErr) });
+          return reply.code(500).send({ code: "INTERNAL" });
+        }
         // A 4xx from Avni means OUR configuration is wrong (e.g. a renamed
         // concept) — every submission will fail the same way. Page ops.
         if (err.status !== null && err.status < 500) {

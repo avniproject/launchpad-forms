@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { env, windowOpen } from "./env.js";
+import { env, windowOpen, assertWindowConfig } from "./env.js";
 import { logger } from "./log.js";
 import { startBugsnag } from "./bugsnag.js";
 import { tokenCached } from "./avni/token.js";
@@ -23,9 +23,15 @@ export function buildApp() {
 const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop() ?? "");
 if (isMain) {
   const e = env();
+  try {
+    assertWindowConfig(e);
+  } catch (err) {
+    logger.error({ err: String(err) }, "invalid registration window configuration");
+    process.exit(1);
+  }
   const missing = (["AVNI_BASE_URL", "AVNI_USERNAME", "AVNI_PASSWORD"] as const).filter((k) => !e[k]);
   if (missing.length) logger.warn({ missing }, "Avni credentials incomplete — submissions will dead-letter");
-  startBugsnag(e.BUGSNAG_KEY, process.env.NODE_ENV ?? "development");
+  startBugsnag(e.BUGSNAG_KEY, e.RELEASE_STAGE);
 
   const app = buildApp();
   // Loopback only — nginx is the front door (rate limiting, real IPs, TLS).
