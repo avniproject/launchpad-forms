@@ -131,3 +131,21 @@ describe("verifyCaptcha", () => {
     });
   });
 });
+
+describe("API key with a website (referrer) restriction", () => {
+  it("sends a Referer when configured, so a referrer-restricted key is accepted", async () => {
+    enterpriseEnv({ RECAPTCHA_BYPASS_TOKEN: "", RECAPTCHA_REFERER: "https://forms.avniproject.org/" });
+    nock(ENTERPRISE_HOST, { reqheaders: { referer: "https://forms.avniproject.org/" } })
+      .post(/assessments/).query(true)
+      .reply(200, { tokenProperties: { valid: true, action: "submit" } });
+    expect(await verifyCaptcha("tok", env())).toBe(true);
+  });
+
+  it("omits the Referer when unset", async () => {
+    enterpriseEnv({ RECAPTCHA_BYPASS_TOKEN: "", RECAPTCHA_REFERER: "" });
+    nock(ENTERPRISE_HOST, { badheaders: ["referer"] })
+      .post(/assessments/).query(true)
+      .reply(200, { tokenProperties: { valid: true, action: "submit" } });
+    expect(await verifyCaptcha("tok", env())).toBe(true);
+  });
+});

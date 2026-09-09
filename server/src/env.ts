@@ -10,6 +10,7 @@ export interface Env {
   RECAPTCHA_API_KEY: string;
   RECAPTCHA_MIN_SCORE: number;
   RECAPTCHA_ACTION: string;
+  RECAPTCHA_REFERER: string;
   RECAPTCHA_BYPASS_TOKEN: string;
   BUGSNAG_KEY: string;
   RELEASE_STAGE: string;
@@ -41,6 +42,9 @@ export function env(): Env {
     // Must match the action the page passes to grecaptcha.enterprise.execute.
     // Checking it stops a token minted elsewhere being replayed here.
     RECAPTCHA_ACTION: e.RECAPTCHA_ACTION ?? "submit",
+    // Sent as the Referer on assessment calls so an API key carrying a
+    // website (HTTP-referrer) restriction accepts them. See captcha.ts.
+    RECAPTCHA_REFERER: e.RECAPTCHA_REFERER ?? "",
     RECAPTCHA_BYPASS_TOKEN: e.RECAPTCHA_BYPASS_TOKEN ?? "",
     BUGSNAG_KEY: e.BUGSNAG_KEY ?? "",
     // Separate from NODE_ENV: both UAT and prod run NODE_ENV=production,
