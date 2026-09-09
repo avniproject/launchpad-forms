@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, Box, Button, CircularProgress, Container, Link, Paper, Typography } from "@mui/material";
-import ReCAPTCHA from "react-google-recaptcha";
 import logo from "@/assets/avni-logo.png";
 import { useAsync } from "@/hooks/useAsync";
 import { FormRenderer } from "@/forms/FormRenderer";
@@ -8,6 +7,7 @@ import { effectiveFields, otherActive } from "@/forms/effectiveFields";
 import type { FieldErrors, FieldValue, FieldValues, FormConfig, SubmitOk } from "@/forms/types";
 import { validateField } from "@/validation/validators";
 import { track } from "@/analytics";
+import { executeCaptcha, preloadCaptcha } from "@/captcha/enterprise";
 import { SuccessScreen } from "./SuccessScreen";
 import { ClosedScreen } from "./ClosedScreen";
 
@@ -18,6 +18,7 @@ const DRAFT_KEY = "launchpad-draft-v1";
 // Production builds must set VITE_RECAPTCHA_SITEKEY (the public half of the
 // "Avni Signup Google Recaptcha" pair).
 const TEST_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+const CAPTCHA_ACTION = "submit";
 const SITE_KEY =
   (import.meta.env.VITE_RECAPTCHA_SITEKEY as string | undefined) || (import.meta.env.DEV ? TEST_SITE_KEY : "");
 
@@ -77,12 +78,10 @@ export function LaunchpadForm() {
   const [result, setResult] = useState<SubmitOk | null>(null);
   const [closedAt, setClosedAt] = useState<string | null>(null);
   const [gotcha, setGotcha] = useState("");
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   // The cohort banner lives at web/public/banner.png (copied verbatim into
   // dist/). It's referenced by URL, not imported, so a missing file hides the
   // banner instead of breaking the build.
   const [banner, setBanner] = useState<"unknown" | "loaded" | "missing">("unknown");
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const viewTracked = useRef(false);
 
   useEffect(() => {
@@ -91,6 +90,11 @@ export function LaunchpadForm() {
       track("form_viewed", { cohort: config.cohort });
     }
   }, [config]);
+
+  // Fetch reCAPTCHA up front; execute() on submit is then instant.
+  useEffect(() => {
+    preloadCaptcha(SITE_KEY);
+  }, []);
 
   // Draft, debounced. The captcha token lives in separate state and is never
   // persisted.
@@ -128,10 +132,10 @@ export function LaunchpadForm() {
     });
   };
 
-  const resetCaptcha = () => {
-    recaptchaRef.current?.reset();
-    setCaptchaToken(null);
-  };
+  // Nothing to reset: a fresh token is minted on every submit attempt.
+  // reCAPTCHA tokens are single-use and short-lived, so holding one across a
+  // retry would fail the assessment anyway.
+  const resetCaptcha = () => undefined;
 
   const handleSubmit = async () => {
     if (!config || submitting) return;
@@ -149,8 +153,14 @@ export function LaunchpadForm() {
       return;
     }
 
-    if (!captchaToken) {
-      setGeneralError("Please complete the security verification (captcha) before submitting.");
+    let token: string;
+    try {
+      token = await executeCaptcha(SITE_KEY, CAPTCHA_ACTION);
+    } catch {
+      track("submit_failed", { code: "CAPTCHA_UNAVAILABLE" });
+      setGeneralError(
+        "Security verification could not load. Check your connection or any ad blocker, then try again.",
+      );
       return;
     }
 
@@ -176,7 +186,7 @@ export function LaunchpadForm() {
       const res = await fetch(`${API_BASE}/api/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ captchaToken, _gotcha: gotcha, fields: payloadFields }),
+        body: JSON.stringify({ captchaToken: token, _gotcha: gotcha, fields: payloadFields }),
       });
 
       if (res.status === 200 || res.status === 202) {
@@ -292,14 +302,21 @@ export function LaunchpadForm() {
             mb: 3,
           }}
         >
-          <Typography sx={{ fontSize: 14, fontWeight: 600, mb: 1 }}>Security verification *</Typography>
           {SITE_KEY ? (
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={SITE_KEY}
-              onChange={(token) => setCaptchaToken(token)}
-              onExpired={() => setCaptchaToken(null)}
-            />
+            // A score-based Enterprise key has no widget: the token is minted
+            // by grecaptcha.enterprise.execute() on submit. Google requires
+            // this attribution wherever the badge is not shown.
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+              This site is protected by reCAPTCHA and the Google{" "}
+              <Link href="https://policies.google.com/privacy" target="_blank" rel="noopener">
+                Privacy Policy
+              </Link>{" "}
+              and{" "}
+              <Link href="https://policies.google.com/terms" target="_blank" rel="noopener">
+                Terms of Service
+              </Link>{" "}
+              apply.
+            </Typography>
           ) : (
             <Alert severity="warning">Security verification is not configured; submissions are disabled.</Alert>
           )}
