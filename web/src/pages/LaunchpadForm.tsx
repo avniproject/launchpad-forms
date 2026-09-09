@@ -218,7 +218,7 @@ export function LaunchpadForm() {
       }
       if (res.status === 400 && code === "CAPTCHA_FAILED") {
         resetCaptcha();
-        setGeneralError("Security verification failed — please tick the captcha and try again.");
+        setGeneralError("Security verification failed. Please try submitting again.");
         return;
       }
       if (res.status === 403 && code === "REGISTRATION_CLOSED") {
