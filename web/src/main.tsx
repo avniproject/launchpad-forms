@@ -1,5 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+// react-google-recaptcha picks its script URL from this global, so it must be
+// set before the widget mounts: enterprise.js instead of api.js. Both are
+// served from www.google.com, which the CSP already allows.
+if ((import.meta.env.VITE_RECAPTCHA_ENTERPRISE as string) === "1") {
+  (window as unknown as { recaptchaOptions?: Record<string, unknown> }).recaptchaOptions = {
+    enterprise: true,
+  };
+}
+
 import Bugsnag from "@bugsnag/js";
 import BugsnagPluginReact from "@bugsnag/plugin-react";
 import BugsnagPerformance from "@bugsnag/browser-performance";

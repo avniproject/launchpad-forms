@@ -103,10 +103,15 @@ Before `make launchpad-forms-prod`:
 
 1. **Purge the dead-letter file.** Any line left from UAT-org validation would
    be replayed into the live funnel as a real applicant.
-2. Confirm `launchpad_forms_prod_avni_password` and `launchpad_forms_recaptcha_secret`
-   are in `prod-secret-vars.yml.enc`, and `launchpad_forms_recaptcha_sitekey` is
-   set in `prod_vars.yml`.
-3. Confirm the reCAPTCHA key's domain list includes `forms.avniproject.org`.
+2. Confirm `launchpad_forms_prod_avni_password` is in `prod-secret-vars.yml.enc`,
+   and that a captcha is actually configured — **either** the Enterprise trio
+   (`launchpad_forms_recaptcha_project_id` + `_sitekey` in `prod_vars.yml`,
+   `_api_key` in the vault, and `_enterprise: "1"`) **or** the classic
+   `launchpad_forms_recaptcha_secret`. With neither, the service rejects every
+   submission — `curl -s .../healthz` stays green while nobody can apply.
+3. Confirm the reCAPTCHA key's domain list includes `forms.avniproject.org`,
+   and that `_enterprise` matches the key type. A mismatch renders no widget
+   at all, silently.
 4. Re-check every concept name in the prod organisation against
    `server/src/mapping/launchpad-cohort.map.ts`.
 

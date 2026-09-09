@@ -159,5 +159,26 @@ Concept names are an **API contract** with the App Designer: a rename mid-window
 
 ## 6. Environment
 
-Service: `AVNI_BASE_URL`, `AVNI_USERNAME`, `AVNI_PASSWORD`, `RECAPTCHA_SECRET`, `RECAPTCHA_BYPASS_TOKEN` (UAT only), `BUGSNAG_KEY`, `RELEASE_STAGE`, `COHORT`, `REG_OPEN`, `REG_CLOSE`, `SUBJECT_TYPE`, `PROGRAM`, `ADDRESS`, `DEAD_LETTER_PATH`, `LOG_LEVEL`, `PORT`.
-Web (build-time, public): `VITE_API_BASE`, `VITE_RECAPTCHA_SITEKEY`, `VITE_BUGSNAG_KEY`, `VITE_RELEASE_STAGE`, `VITE_POSTHOG_KEY`. Never a secret in a `VITE_` variable.
+Service: `AVNI_BASE_URL`, `AVNI_USERNAME`, `AVNI_PASSWORD`, `RECAPTCHA_PROJECT_ID`, `RECAPTCHA_SITE_KEY`, `RECAPTCHA_API_KEY`, `RECAPTCHA_MIN_SCORE`, `RECAPTCHA_SECRET`, `RECAPTCHA_BYPASS_TOKEN` (UAT only), `BUGSNAG_KEY`, `RELEASE_STAGE`, `COHORT`, `REG_OPEN`, `REG_CLOSE`, `SUBJECT_TYPE`, `PROGRAM`, `ADDRESS`, `DEAD_LETTER_PATH`, `LOG_LEVEL`, `PORT`.
+Web (build-time, public): `VITE_API_BASE`, `VITE_RECAPTCHA_SITEKEY`, `VITE_RECAPTCHA_ENTERPRISE`, `VITE_BUGSNAG_KEY`, `VITE_RELEASE_STAGE`, `VITE_POSTHOG_KEY`. Never a secret in a `VITE_` variable.
+
+## 7. Captcha
+
+Two mechanisms, selected by configuration; the service picks one at request time.
+
+| Mode | Enabled by | Verification |
+|---|---|---|
+| **reCAPTCHA Enterprise** (current Google mechanism) | `RECAPTCHA_PROJECT_ID` + `RECAPTCHA_SITE_KEY` + `RECAPTCHA_API_KEY` all set | `POST https://recaptchaenterprise.googleapis.com/v1/projects/{project}/assessments?key={apiKey}` with `{"event":{"token","siteKey"}}`. Accepts on `tokenProperties.valid === true`, and — only when the response carries `riskAnalysis.score` — on `score >= RECAPTCHA_MIN_SCORE` |
+| **reCAPTCHA v2 classic** (fallback) | `RECAPTCHA_SECRET` set, Enterprise not | `POST https://www.google.com/recaptcha/api/siteverify`, accepts on `success === true` |
+| **unconfigured** | neither | **Rejects every submission.** Fails closed by design — a half-finished setup must never become an open door |
+
+`expectedAction` is deliberately not sent: actions are unsupported for
+explicitly rendered checkbox widgets, which is what the page uses. A checkbox
+key returns validity with no score, so the score gate simply does not apply.
+
+The page must load the matching script — `VITE_RECAPTCHA_ENTERPRISE=1` selects
+`recaptcha/enterprise.js` over `api.js`. **A mismatch fails silently**: an
+Enterprise key loaded by `api.js` never renders a widget, so the applicant sees
+no captcha and cannot submit, with no error anywhere.
+
+Both scripts are served from `www.google.com`, which the CSP already allows.
