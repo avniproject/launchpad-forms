@@ -4,6 +4,20 @@
 // burst makes a single call.
 import type { Env } from "../env.js";
 
+// Why the token could not be obtained. "auth" is a rejected credential or a
+// user without "Is Allowed To Invoke Token Generation API" — permanent until
+// someone fixes it, so callers page on it. "network" is Avni being briefly
+// unreachable, which the retries and the dead-letter file already handle.
+export class TokenError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: "auth" | "network",
+  ) {
+    super(message);
+    this.name = "TokenError";
+  }
+}
+
 const TTL_MS = 50 * 60 * 1000;
 
 let cached: { token: string; fetchedAt: number } | null = null;
@@ -47,9 +61,15 @@ async function fetchToken(e: Env): Promise<string> {
       });
       if (res.status >= 500) {
         lastError = new Error(`generateToken ${res.status}`);
+        // Drain before retrying: undici holds the socket open until an unread
+        // body is garbage-collected.
+        await res.arrayBuffer().catch(() => undefined);
         continue;
       }
-      if (!res.ok) throw new Error(`generateToken failed: HTTP ${res.status}`);
+      if (!res.ok) {
+        await res.arrayBuffer().catch(() => undefined);
+        throw new TokenError(`generateToken rejected the credentials: HTTP ${res.status}`, "auth");
+      }
       // The live endpoint returns { "authToken": "…" } (verified 9 Sep 2026).
       const body = (await res.json()) as { authToken?: string; token?: string };
       const jwt = body.authToken ?? body.token;
@@ -57,9 +77,9 @@ async function fetchToken(e: Env): Promise<string> {
       cached = { token: jwt, fetchedAt: Date.now() };
       return jwt;
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith("generateToken failed")) throw err;
+      if (err instanceof TokenError) throw err;   // credentials: retrying cannot help
       lastError = err;
     }
   }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  throw new TokenError(`generateToken unreachable: ${String(lastError)}`, "network");
 }

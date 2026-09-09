@@ -1,7 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import nock from "nock";
 import { readFile } from "node:fs/promises";
 import { buildApp } from "../src/index.js";
+import { notify } from "../src/bugsnag.js";
+
+// Bugsnag no-ops without an API key, so spy on it to assert what would page.
+vi.mock("../src/bugsnag.js", () => ({ startBugsnag: vi.fn(), notify: vi.fn() }));
 import { resetTokenState } from "../src/avni/token.js";
 import { AVNI_BASE, setTestEnv, submitBody } from "./helpers.js";
 
@@ -17,6 +21,7 @@ beforeEach(() => {
   resetTokenState();
   nock.cleanAll();
   nock.disableNetConnect();
+  vi.mocked(notify).mockClear();
 });
 
 afterEach(() => {
@@ -177,4 +182,34 @@ describe("GET /healthz and /api/form-config", () => {
     // (referralSourceOther and contactRoleOther are derived).
     expect(body.sections.flatMap((s: { fields: unknown[] }) => s.fields)).toHaveLength(27);
   });
+});
+
+describe("configuration failures must page, not just queue", () => {
+  it("a bad integration password reaches Bugsnag, not just the dead-letter file", async () => {
+    // A 401 from generateToken is a CONFIGURATION error: every submission will
+    // fail identically until someone fixes the credential. Queuing silently
+    // while the applicant sees a success screen is the worst of both worlds.
+    nock(AVNI_BASE).post("/api/user/generateToken").reply(401, { error: "bad credentials" });
+
+    const app = buildApp();
+    const res = await app.inject({ method: "POST", url: "/api/submit", payload: submitBody() });
+
+    expect(res.statusCode).toBe(202); // still captured — the applicant keeps their answers
+    const lines = (await readFile(deadLetterPath, "utf8")).trim().split("\n");
+    expect(lines).toHaveLength(1);
+
+    expect(notify).toHaveBeenCalled();
+  }, 15_000);
+
+  it("a transient network outage queues WITHOUT paging", async () => {
+    // Avni being briefly unreachable is not a config error and must not page
+    // on every blip; the retries and the dead-letter file already cover it.
+    nock(AVNI_BASE).post("/api/user/generateToken").times(3).replyWithError("ECONNREFUSED");
+
+    const app = buildApp();
+    const res = await app.inject({ method: "POST", url: "/api/submit", payload: submitBody() });
+
+    expect(res.statusCode).toBe(202);
+    expect(notify).not.toHaveBeenCalled();
+  }, 15_000);
 });
