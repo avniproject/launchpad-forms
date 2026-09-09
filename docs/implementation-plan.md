@@ -6,6 +6,8 @@ Legend used throughout: **[Avni provides]** · **[You configure in Avni]** · **
 
 > **Revised 28 Aug 2026 (evening).** The Avni-side model below stands. The *glue* changed: the registration page is served from Avni's own reporting node (the way `tanuh.avniproject.org` is), and the credential-holding proxy is a small service in this repo on the same node — **not** n8n, **not** Lambda, **not** S3 + CloudFront. There is no confirmation email in v1. The field list is frozen to the live Cohort 4 Google Form. The full design, the build-day plan and the reasons are in [`docs/superpowers/specs/2026-08-28-launchpad-forms-design.md`](superpowers/specs/2026-08-28-launchpad-forms-design.md); the exact HTTP contract and the field → concept table are in [`docs/CONTRACT.md`](CONTRACT.md). Sections touched by the revision are marked *(revised 28 Aug)*.
 
+> **Superseded in places.** This document predates the deployment. Where it disagrees with [`docs/LEARNINGS.md`](LEARNINGS.md) or [`docs/CONTRACT.md`](CONTRACT.md), those are right — see LEARNINGS §8 for the specific corrections (subject type and program names, the integration username, the close date, one instance rather than two, a dedicated node, Enterprise captcha, and code-gated URLs).
+
 ---
 
 ## Contents
@@ -204,7 +206,7 @@ Create concept names **and coded answers verbatim** — they are an API contract
    | `Launchpad Team` | View/Register/Edit subject on Applicant; Enrol/View/Edit enrolment on Launchpad; View/Schedule/Perform/Edit/Cancel visit on all five encounter types; Analytics for those who need Metabase | Screeners, ops team |
    | `API Integration` | **Only**: Edit subject (Applicant) + Enrol subject (Launchpad) — the two privileges the API actually checks; "Register subject" on its own is refused *(corrected 28 Aug)*. Nothing else. | The form service's user only |
 
-4. **Users.** Create human users (`ravi@launchpad`, …) in Launchpad Team, and one integration user `launchpad-forms@launchpad` in API Integration with the "User" role. In that user's settings turn on **"Is Allowed To Invoke Token Generation API"** — that switch is how the form service gets its token *(revised 28 Aug)*. Log in as the integration user once in a browser to clear the forced password change — the API cannot answer that challenge. Do the same in the UAT organisation (`launchpad-forms@launchpaduat`).
+4. **Users.** Create human users (`ravi@launchpad`, …) in Launchpad Team, and one integration user `apiuser@launchpad` in API Integration with the "User" role. In that user's settings turn on **"Is Allowed To Invoke Token Generation API"** — that switch is how the form service gets its token *(revised 28 Aug)*. Log in as the integration user once in a browser to clear the forced password change — the API cannot answer that challenge. Do the same in the UAT organisation (`apiuser@launchpadUat` — note the capital U).
 
 **Test:** a Launchpad Team member can log into the Data Entry App and sees an empty applicant list; the API user logged into the web app can register but sees no admin menus.
 
@@ -279,7 +281,7 @@ The contract is the same as before: the page POSTs plain field JSON to one URL; 
 POST {AVNI_BASE_URL}/api/user/generateToken
 Content-Type: application/json
 
-{ "username": "launchpad-forms@launchpad", "password": "…from the service's secret file…" }
+{ "username": "apiuser@launchpad", "password": "…from the service's secret file…" }
 
 → { "token": "eyJ…" }
 ```

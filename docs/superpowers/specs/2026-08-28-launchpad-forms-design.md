@@ -2,6 +2,9 @@
 
 **Status:** approved 28 Aug 2026 (Himesh, after the brainstorming session). Supersedes the glue design in `docs/implementation-plan.md` Phases 4–5; the Avni-side model in that document stands.
 
+
+> **Superseded in places.** This document predates the deployment. Where it disagrees with [`docs/LEARNINGS.md`](../../LEARNINGS.md) or [`docs/CONTRACT.md`](../../CONTRACT.md), those are right — see LEARNINGS §8 for the specific corrections (subject type and program names, the integration username, the close date, one instance rather than two, a dedicated node, Enterprise captcha, and code-gated URLs).
+
 ## 1. What this is
 
 A public signup page at `forms.avniproject.org` for the Avni Launchpad cohort programme. An applicant fills one form, no login. The submission becomes an **Applicant** subject and a **Launchpad** program enrolment in the `Avni Launchpad` organisation, through Avni's external API. From there everything is standard Avni: the team screens and tracks applicants in the Data Entry App, the hourly ETL flattens the data, and Metabase shows the funnel.
@@ -191,7 +194,7 @@ location = /healthz         { proxy_pass http://127.0.0.1:{{ svc_port }}; }
 4. Subject type `Applicant` (Individual): *Allow empty location* on, *Unique name* off. Registration form pages "Organisation" and "Contact person".
 5. Program `Launchpad`, **multiple enrolments on**. Forms "Launchpad Application" (Cohort required) and "Launchpad Exit".
 6. Groups: `Everyone` → all privileges off. `Launchpad Admin` (all + Analytics), `Launchpad Team`, `API Integration` = **only `EditSubject` on Applicant and `EnrolSubject` on Launchpad**.
-7. User `launchpad-forms@launchpad` (and `@launchpaduat`): role User, group API Integration, catchment All India, **"Is Allowed To Invoke Token Generation API" on**, one browser login to clear the forced password change, password set not to expire.
+7. User `apiuser@launchpad` (and `apiuser@launchpadUat`): role User, group API Integration, catchment All India, **"Is Allowed To Invoke Token Generation API" on**, one browser login to clear the forced password change, password set not to expire.
 8. Organisation config → custom search result fields: contact email, contact phone.
 9. Bundle export from UAT → import into prod, then re-check concept names against `mapping/launchpad-cohort.map.ts`.
 10. Prod organisation → Reports → Self-service → *Setup Reports*.
