@@ -11,6 +11,7 @@ import { notify } from "../bugsnag.js";
 import { verifyCaptcha } from "../captcha.js";
 import { appendDeadLetter } from "../deadletter.js";
 import { submitSchema, fieldErrors } from "../validation/schema.js";
+import { findForm } from "../forms/registry.js";
 import {
   AvniError,
   buildSubjectPayload,
@@ -30,7 +31,7 @@ export function registerSubmit(app: FastifyInstance): void {
     const e = env();
     const submissionId = randomUUID();
     const started = Date.now();
-    const body = req.body as { _gotcha?: string; captchaToken?: string; fields?: Record<string, unknown> } | null;
+    const body = req.body as { _gotcha?: string; captchaToken?: string; code?: string; fields?: Record<string, unknown> } | null;
 
     const log = (outcome: string, extra: Record<string, unknown> = {}) => {
       const email = body?.fields?.email;
@@ -49,6 +50,15 @@ export function registerSubmit(app: FastifyInstance): void {
     if (body?._gotcha) {
       log("honeypot");
       return reply.code(200).send({ code: "CREATED", reference: `LP-${shortHex(submissionId)}` });
+    }
+
+    // The code gates submission too, not just the form fetch: once a second
+    // form exists, the code decides which schema and concept mapping apply, so
+    // accepting a submission without one would validate against the wrong form.
+    const form = findForm(body?.code);
+    if (!form) {
+      log("unknown_form_code");
+      return reply.code(404).send({ code: "FORM_NOT_FOUND" });
     }
 
     const parsed = submitSchema.safeParse(body ?? {});

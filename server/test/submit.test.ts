@@ -7,7 +7,7 @@ import { notify } from "../src/bugsnag.js";
 // Bugsnag no-ops without an API key, so spy on it to assert what would page.
 vi.mock("../src/bugsnag.js", () => ({ startBugsnag: vi.fn(), notify: vi.fn() }));
 import { resetTokenState } from "../src/avni/token.js";
-import { AVNI_BASE, setTestEnv, submitBody } from "./helpers.js";
+import { AVNI_BASE, setTestEnv, submitBody, FORM_CODE } from "./helpers.js";
 
 let deadLetterPath: string;
 
@@ -171,7 +171,7 @@ describe("GET /healthz and /api/form-config", () => {
 
   it("form-config serves the field spec with window state and cache header", async () => {
     const app = buildApp();
-    const res = await app.inject({ method: "GET", url: "/api/form-config" });
+    const res = await app.inject({ method: "GET", url: `/api/form-config?code=${FORM_CODE}` });
     expect(res.statusCode).toBe(200);
     expect(res.headers["cache-control"]).toContain("max-age=60");
     const body = res.json();
@@ -212,4 +212,46 @@ describe("configuration failures must page, not just queue", () => {
     expect(res.statusCode).toBe(202);
     expect(notify).not.toHaveBeenCalled();
   }, 15_000);
+});
+
+describe("form codes", () => {
+  it("form-config without a code is 404 — the bare domain serves no form", async () => {
+    const app = buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/form-config" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("FORM_NOT_FOUND");
+  });
+
+  it("form-config with an unknown code is 404, indistinguishable from a retired one", async () => {
+    const app = buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/form-config?code=not-a-real-code" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("FORM_NOT_FOUND");
+  });
+
+  it("a 404 form-config is never cached", async () => {
+    const app = buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/form-config?code=nope" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("submit with an unknown code is refused before any Avni call", async () => {
+    // No nock mocks registered: if the route reached Avni this would throw.
+    const app = buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/submit",
+      payload: { ...submitBody(), code: "not-a-real-code" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("FORM_NOT_FOUND");
+  });
+
+  it("submit with no code at all is refused", async () => {
+    const body = { ...submitBody() } as Record<string, unknown>;
+    delete body.code;
+    const app = buildApp();
+    const res = await app.inject({ method: "POST", url: "/api/submit", payload: body });
+    expect(res.statusCode).toBe(404);
+  });
 });

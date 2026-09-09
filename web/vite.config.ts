@@ -17,7 +17,7 @@ function devApiMock(): Plugin {
     configureServer(server: ViteDevServer) {
       server.middlewares.use((req, res, next) => {
         const url = (req.url ?? "").split("?")[0];
-        if (url === "/api/form-config" && req.method === "GET") {
+        if (url?.startsWith("/api/form-config") && req.method === "GET") {
           res.setHeader("content-type", "application/json");
           res.end(readFileSync(path.resolve(__dirname, "src/fixtures/form-config.json")));
           return;
