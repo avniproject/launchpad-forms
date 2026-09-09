@@ -22,7 +22,23 @@ Both are served from one nginx on Avni's reporting node behind the shared load b
 
 ## Status
 
-28 Aug 2026 — design approved; build scheduled as a one-day, four-lane effort (spec §13). Nothing in `web/` or `server/` exists yet. Cohort 4 applications keep arriving on the Google Form until 25 Sep 2026 and are imported afterwards.
+8 Sep 2026 — both code lanes are implemented and verified end-to-end locally (`make help` lists all targets). **Lane A (`web/`)**: form rendered from `/api/form-config`, validation, draft, captcha, banner + Google-Form intro, screens, analytics, built-in dev API mock. **Lane B (`server/`)**: Fastify service — form-config, submit pipeline (honeypot → zod → window → captcha → token → subject → enrolment), dead-letter + `scripts/replay.mjs`, `scripts/smoke.sh`, 30 vitest/nock tests. Spec §10 questions A/B are resolved (City + State split; budget bands) — see CONTRACT.md §5. **Not done:** the Avni organisations + App Designer config (Lane D, spec §9 — blocks real end-to-end testing), infra/deploy (Lane C, spec §8), and the day-2 items (Google Form import, Playwright). Cohort 4 applications keep arriving on the Google Form until 25 Sep 2026 and are imported afterwards.
+
+## Open items before public launch (single source of truth — update here, not in chat)
+
+| # | Item | Owner | Status |
+|---|---|---|---|
+| 1 | Lane C: `avni-infra` role, nginx, ALB, DNS for `uat-forms` + `forms` (spec §8) | Himesh / platform | ☐ not started |
+| 2 | **Bugsnag project + keys** (server `BUGSNAG_KEY`, web `VITE_BUGSNAG_KEY`) — without these, failures are silent until someone reads logs | Team — decide owner | ☐ not started |
+| 3 | Real reCAPTCHA keys in deploy env; confirm domain list includes both host names (spec risk #1) | Lane C + whoever holds Google admin | ☐ not started |
+| 4 | Dead-letter alerting to email/Slack (spec go-live item); interim: daily `wc -l` on the JSONL during the window | Ops | ☐ day-2 |
+| 5 | Rotate UAT integration user password (current one passed through chat); create separate prod org + user with strong password | Nupoor | ☐ pending |
+| 6 | Updated banner image + Google Form copy for "West and East India" (page still shows the Eastern-India banner) | Launchpad team | ☐ pending |
+| 7 | UAT → prod bundle export/import + prod org Metabase setup (spec §9.9–9.10) | Nupoor | ☐ after UAT sign-off |
+| 8 | Cohort 4 Google Form → Avni import script (after 5 Oct close) | Day-2 | ☐ not started |
+| 9 | Manual test matrix on deployed UAT (spec §11), then tag `v0.1.0` for prod | All | ☐ blocked on #1 |
+
+Done and verified: web app, service, UAT org config, full browser→service→Avni E2E with idempotent upsert (9 Sep).
 
 ## Who does what on build day
 

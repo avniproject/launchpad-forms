@@ -207,12 +207,12 @@ Source: "Avni Launchpad 4.0 – Eastern India Cohort | Signup Form" (4 pages, al
 | 1 | Your email address | Email — **dedup key → External ID** | Registration | Contact email |
 | 2 | Name | Text | Registration | Contact person name |
 | 3 | Organisation | Text → subject name (`"First name"`) | Registration | — |
-| 4 | Designation / Role of Primary Contact | Text | Registration | Contact role |
+| 4 | Designation / Role of Primary Contact | Coded dropdown + Other — decision 8 Sep | Registration | Contact role (+ Contact role other) |
 | 5 | Primary Contact Mobile Number (WhatsApp preferred) | Phone (IN) | Registration | Contact phone |
 | 6 | Organisation Website (or "Not available") | Text | Registration | Organisation website |
-| 7 | Organization Headquarter (City and State) | Text — open question A | Registration | Headquarters |
+| 7 | Organization Headquarter (City and State) | City text + State dropdown — decision A | Registration | Headquarters city + State (coded, 28 states + 8 UTs) |
 | 8 | Foundation year of the organisation | Numeric (year) | Registration | Foundation year |
-| 9 | Annual budget of the organisation | Text — open question B | Registration | Annual budget |
+| 9 | Annual budget of the organisation | Coded bands — decision B | Registration | Annual budget |
 | 10 | Used digital data collection / MIS tools before? | Coded: Yes, currently using · Yes, have used earlier · Never used digital data collection/MIS tools | Enrolment | Prior MIS tool use |
 | 11 | How familiar are you with Avni? | Coded: attended an Avni demo/webinar · explored the website, videos or case studies · heard about Avni but not explored · completely new | Enrolment | Avni familiarity |
 | 12 | Name of the intervention to digitise | Text | Enrolment | Intervention name |
@@ -231,7 +231,7 @@ Source: "Avni Launchpad 4.0 – Eastern India Cohort | Signup Form" (4 pages, al
 | — | Cohort | Set by the service from `COHORT`; never user-entered | Enrolment | Cohort |
 | — | Privacy-policy consent (website pattern; not on the Google Form) | Required checkbox | Registration | Consent to data use = Yes |
 
-Open questions for the Launchpad team (defaults apply if unanswered by build-day 09:00): **A** — keep Headquarters as one free-text field like the Google Form (default) or split into City + State dropdown for state-wise dashboards; **B** — keep Annual budget free text (default) or coded bands.
+**Resolved 28 Aug (evening) by the Launchpad team:** **A** — Headquarters is split into a City text field + State dropdown (coded State concept, for state-wise dashboards); **B** — Annual budget uses coded bands (Under ₹10 lakh · ₹10 lakh – ₹50 lakh · ₹50 lakh – ₹1 crore · ₹1 crore – ₹5 crore · Above ₹5 crore — boundaries pending team sign-off). Both diverge from the Google Form, so the Cohort 4 import must parse the old free-text answers into these shapes (day-2 import task); the exact strings live in `docs/CONTRACT.md` §5.
 
 ## 11. Testing
 

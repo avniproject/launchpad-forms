@@ -121,20 +121,53 @@ Don't model status as a mutable field someone must remember to update. In Avni, 
 
 This means no status field can ever disagree with the evidence, every status change carries its own form (who decided, when, why, scores), and the Metabase funnel is a set of simple `COUNT`s over encounter tables. If the team wants a visible status line on the applicant's profile in the Data Entry App, add a *subject summary rule* (JavaScript, configured on the subject type) that computes it from the same encounters — display logic, not stored state.
 
-### Concept inventory
+### Concept inventory *(revised 8 Sep — matches `docs/CONTRACT.md` §5, the source of truth)*
+
+Create concept names **and coded answers verbatim** — they are an API contract with the service (a mismatch fails every submission) and they become Metabase column values. The subject's name itself carries the organisation name (the API's "First name"); do **not** create a concept for it.
+
+**Registration form (Applicant) — pages "Organisation" and "Contact person":**
+
+| Concept | Data type | Coded answers (exact, in order) |
+|---|---|---|
+| Contact person name | Text | — |
+| Contact email | Text | — (de-duplication key; validated by the service) |
+| Contact phone | PhoneNumber | — |
+| Contact role | Coded | Founder / Co-founder · Executive Director / CEO · Program Manager / Lead · M&E / MIS Manager · Data / IT Officer · Field Coordinator · Other |
+| Contact role other | Text | — (filled only when Contact role = Other) |
+| Organisation website | Text | — ("Not available" allowed) |
+| Headquarters city | Text | — |
+| State | Coded | Andhra Pradesh · Arunachal Pradesh · Assam · Bihar · Chhattisgarh · Goa · Gujarat · Haryana · Himachal Pradesh · Jharkhand · Karnataka · Kerala · Madhya Pradesh · Maharashtra · Manipur · Meghalaya · Mizoram · Nagaland · Odisha · Punjab · Rajasthan · Sikkim · Tamil Nadu · Telangana · Tripura · Uttar Pradesh · Uttarakhand · West Bengal · Andaman and Nicobar Islands · Chandigarh · Dadra and Nagar Haveli and Daman and Diu · Delhi · Jammu and Kashmir · Ladakh · Lakshadweep · Puducherry |
+| Foundation year | Numeric (1800–current year) | — |
+| Annual budget | Coded | Under ₹10 lakh · ₹10 lakh – ₹50 lakh · ₹50 lakh – ₹1 crore · ₹1 crore – ₹5 crore · Above ₹5 crore |
+| Consent to data use | Coded | Yes · No (the service only ever sends "Yes") |
+
+**"Launchpad Application" enrolment form:**
+
+| Concept | Data type | Coded answers (exact, in order) |
+|---|---|---|
+| Cohort | Coded | Cohort 4 (deliberately region-free — Cohort 4 runs in more than one place; regional breakdown comes from State. Existing answers: Cohort 1 - Bangalore · Cohort 2 – Delhi · Cohort 3 – Mumbai · Cohort 4. Set by the service, never user-entered) |
+| Prior MIS tool use | Coded | Yes, currently using · Yes, have used earlier · Never used digital data collection/MIS tools |
+| Avni familiarity | Coded | I have attended an Avni demo/webinar · I have explored the Avni website, videos or case studies · I have heard about Avni but have not explored it in detail · I am completely new to Avni |
+| Intervention name | Text | — |
+| Program operational since | Text | — |
+| Anticipated program duration | Text | — |
+| Funding secured until | Text | — |
+| Current challenges | Notes | — (≤200 words, enforced by the service) |
+| Pilot use case | Notes | — (≤400 words, enforced by the service) |
+| Expected field users | Numeric (≥1) | — |
+| MIS/M&E team | Coded | Yes · No · No, Planning to recruit in next 3 months *(capital "P" — verbatim from the Google Form)* |
+| Dedicated team member available | Coded | Yes · No |
+| Pricing understood | Coded | Yes · No |
+| Paid plan intent | Coded | Yes · No · I would like to discuss more |
+| Workshop location | Coded | Ahmedabad · Bhubaneswar *(added 8 Sep for the West & East India cohort — which 2-day workshop the pilot owner will join)* |
+| Referral source | Coded | Avni website · Samanvay / Avni team · NGO partner network · Social media (LinkedIn, Instagram,Twitter) *(missing space verbatim)* · Tamuku · India Partner Network · Reference · Other |
+| Referral source other | Text | — (filled only when Referral source = Other) |
+| Application agreement | Coded | Yes · No (the service only ever sends "Yes") |
+
+**Internal workflow forms (unchanged from the original design):**
 
 | Concept | Data type | Used in form | Notes |
 |---|---|---|---|
-| Contact person name | Text | Registration | The human to reach out to. |
-| Contact email | Text | Registration | Your de-duplication key; validated by the proxy. |
-| Contact phone | PhoneNumber | Registration | Built-in format validation. |
-| Organisation type | Coded: NGO, Foundation, Social enterprise, Other | Registration | From the signup form's audience. |
-| State | Coded (states/UTs) | Registration | Carries all geographic reporting, since the address is a single hardcoded "India". |
-| Role / designation | Text | Registration | Contact person's role in the org. |
-| Cohort | Coded: Cohort 4 – Eastern India, Cohort 5 – …, … | Enrolment | The reusability hinge. Cohorts are regional, so bake the region into the answer name. Add answers each cohort. |
-| How did you hear about Launchpad | Coded | Enrolment | Marketing-channel reporting. |
-| Proposal summary | Notes | Enrolment | Long text. |
-| Consent to data use | Coded: Yes/No | Registration | Record consent as data, not just a checkbox pixel. |
 | Screening decision | Coded: Shortlisted, Rejected, On hold | Screening | |
 | Screening score | Numeric (with low/high range) | Screening | Rubric total; sub-scores can be a QuestionGroup. |
 | Screening remarks | Notes | Screening | |

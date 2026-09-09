@@ -9,9 +9,12 @@ Returns the field spec the page renders, plus the registration-window state.
 ```jsonc
 {
   "form": "launchpad-cohort",
-  "cohort": "Cohort 4 – Eastern India",
+  "cohort": "Cohort 4",
+  "title": "Avni Launchpad 4.0 – Eastern India Cohort",   // optional page heading
+  "description": "…",                 // optional Google-Forms-style intro under the heading;
+                                      // blank lines separate paragraphs, URLs/emails auto-linked
   "open": true,                       // false → the page shows the closed screen
-  "closesAt": "2026-09-25T23:59:59+05:30",
+  "closesAt": "2026-10-05T23:59:59+05:30",
   "sections": [
     { "id": "contact", "title": "Contact information",
       "description": "The primary person representing your organisation.",
@@ -26,7 +29,7 @@ Returns the field spec the page renders, plus the registration-window state.
 }
 ```
 
-Field `type` ∈ `text` · `email` · `phone` · `number` · `notes` (multi-line, with optional `maxWords`) · `radio` · `select` · `checkbox` (single agreement box). A `radio`/`select` may set `"other": true`, which adds a free-text `<id>Other` field when the last option is chosen.
+Field `type` ∈ `text` · `email` · `phone` · `number` (optional `min`, `max`) · `notes` (multi-line, with optional `maxWords`) · `radio` · `select` · `checkbox` (single agreement box). A field may carry an optional `description` (helper text under the label). A `radio`/`select` may set `"other": true`, which adds a free-text `<id>Other` field when the last option is chosen.
 
 ## 2. `POST /api/submit`
 
@@ -40,12 +43,14 @@ Plain field JSON keyed by field id — no concept names, no Avni shapes.
     "email": "priya@abcfoundation.org",
     "contactName": "Priya Sharma",
     "organisationName": "ABC Foundation",
-    "contactRole": "Program Manager",
+    "contactRole": "Program Manager / Lead",
+    "contactRoleOther": "",
     "contactPhone": "+919876543210",
     "website": "https://abcfoundation.org",
-    "headquarters": "Bhubaneswar, Odisha",
+    "headquartersCity": "Bhubaneswar",
+    "headquartersState": "Odisha",
     "foundationYear": 2012,
-    "annualBudget": "INR 70,00,000",
+    "annualBudget": "₹50 lakh – ₹1 crore",
     "priorMisToolUse": "Yes, have used earlier",
     "avniFamiliarity": "I have attended an Avni demo/webinar",
     "interventionName": "Tracking health outreach visits",
@@ -59,6 +64,7 @@ Plain field JSON keyed by field id — no concept names, no Avni shapes.
     "dedicatedTeamMember": "Yes",
     "pricingUnderstood": "Yes",
     "paidPlanIntent": "I would like to discuss more",
+    "workshopLocation": "Bhubaneswar",
     "referralSource": "NGO partner network",
     "referralSourceOther": "",
     "applicationAgreement": true,
@@ -92,7 +98,7 @@ Default API version (no `?version` parameter). Header `AUTH-TOKEN: <jwt>` from `
 ```jsonc
 // POST /api/subject
 { "External ID": "<email, trimmed, lower-cased, NFKC>",
-  "Subject type": "Applicant",
+  "Subject type": "Organisation",
   "Registration date": "<today, IST, YYYY-MM-DD>",
   "First name": "<organisationName>",
   "Address": "India",
@@ -100,7 +106,7 @@ Default API version (no `?version` parameter). Header `AUTH-TOKEN: <jwt>` from `
 
 // POST /api/programEnrolment
 { "External ID": "<subject External ID>::cohort-4",
-  "Program": "Launchpad",
+  "Program": "Launchpad Application",
   "Subject external ID": "<subject External ID>",
   "Enrolment datetime": "<now, ISO 8601 with +05:30>",
   "observations": { "Cohort": "<COHORT env>", /* enrolment concepts, §5 */ },
@@ -116,19 +122,21 @@ Invariants the tests pin:
 
 ## 5. Field → concept mapping
 
-Concept names are an **API contract** with the App Designer: a rename mid-window fails every submission. Registration concepts live on the Applicant registration form; enrolment concepts on the "Launchpad Application" enrolment form.
+Concept names are an **API contract** with the App Designer: a rename mid-window fails every submission. As configured (UAT org, 8 Sep): subject type **Organisation** (form "Organisation Registration"); program **Launchpad Application** (form "Launchpad Application Enrolment"). Registration concepts live on the registration form; enrolment concepts on the enrolment form.
 
 | Field id | Type | Avni form | Concept name | Notes |
 |---|---|---|---|---|
 | `email` | email | Registration | Contact email | also the subject External ID |
 | `contactName` | text | Registration | Contact person name | |
 | `organisationName` | text | Registration | — | goes in `"First name"` (the subject's name) |
-| `contactRole` | text | Registration | Contact role | |
+| `contactRole` | select (+other) | Registration | Contact role | decision (8 Sep): coded — Founder / Co-founder · Executive Director / CEO · Program Manager / Lead · M&E / MIS Manager · Data / IT Officer · Field Coordinator · Other (role list pending team sign-off) |
+| `contactRoleOther` | text | Registration | Contact role other | only when `contactRole` = Other |
 | `contactPhone` | phone | Registration | Contact phone | PhoneNumber concept; E.164 |
 | `website` | text | Registration | Organisation website | "Not available" allowed |
-| `headquarters` | text | Registration | Headquarters | open question A: split into City + State? |
+| `headquartersCity` | text | Registration | Headquarters city | decision A (28 Aug): split from the Google Form's single "City and State" field |
+| `headquartersState` | select | Registration | State | coded: the 28 states + 8 UTs; decision A — powers state-wise dashboards |
 | `foundationYear` | number | Registration | Foundation year | 1800–current year |
-| `annualBudget` | text | Registration | Annual budget | open question B: coded bands? |
+| `annualBudget` | select | Registration | Annual budget | decision B (28 Aug): coded bands — Under ₹10 lakh · ₹10 lakh – ₹50 lakh · ₹50 lakh – ₹1 crore · ₹1 crore – ₹5 crore · Above ₹5 crore (band boundaries pending team sign-off) |
 | `privacyConsent` | checkbox | Registration | Consent to data use | stored as coded `Yes` |
 | `priorMisToolUse` | radio | Enrolment | Prior MIS tool use | Yes, currently using · Yes, have used earlier · Never used digital data collection/MIS tools |
 | `avniFamiliarity` | radio | Enrolment | Avni familiarity | I have attended an Avni demo/webinar · I have explored the Avni website, videos or case studies · I have heard about Avni but have not explored it in detail · I am completely new to Avni |
@@ -143,6 +151,7 @@ Concept names are an **API contract** with the App Designer: a rename mid-window
 | `dedicatedTeamMember` | radio | Enrolment | Dedicated team member available | Yes · No |
 | `pricingUnderstood` | radio | Enrolment | Pricing understood | Yes · No |
 | `paidPlanIntent` | radio | Enrolment | Paid plan intent | Yes · No · I would like to discuss more |
+| `workshopLocation` | radio | Enrolment | Workshop location | added 8 Sep (West & East India cohort): Ahmedabad · Bhubaneswar |
 | `referralSource` | radio (+other) | Enrolment | Referral source | Avni website · Samanvay / Avni team · NGO partner network · Social media (LinkedIn, Instagram,Twitter) · Tamuku · India Partner Network · Reference · Other |
 | `referralSourceOther` | text | Enrolment | Referral source other | only when `referralSource` = Other |
 | `applicationAgreement` | checkbox | Enrolment | Application agreement | stored as coded `Yes` |
