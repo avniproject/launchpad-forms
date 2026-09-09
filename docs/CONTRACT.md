@@ -2,9 +2,18 @@
 
 Everything the three parts agree on. Change this file first; code follows it.
 
-## 1. `GET /api/form-config`
+## 1. `GET /api/form-config?code=<code>`
 
 Returns the field spec the page renders, plus the registration-window state.
+
+**A form is reachable only by its code.** `forms.avniproject.org/<code>` serves
+that form; the bare domain serves none, and an unknown code is answered exactly
+like a retired one — 404 `FORM_NOT_FOUND`, `cache-control: no-store` — so codes
+cannot be probed for validity. The code → form map lives in
+`server/src/forms/registry.ts`; a second form is a new module plus one entry.
+
+This is obscurity, not authentication: a leaked code is public and anyone
+holding it can submit.
 
 ```jsonc
 {
@@ -37,7 +46,8 @@ Plain field JSON keyed by field id — no concept names, no Avni shapes.
 
 ```jsonc
 {
-  "captchaToken": "…",                // reCAPTCHA v2 response; UAT accepts RECAPTCHA_BYPASS_TOKEN
+  "code": "k9m4x7qp2vhd",             // which form this is for; 404 if unknown
+  "captchaToken": "…",                // reCAPTCHA Enterprise token; UAT accepts RECAPTCHA_BYPASS_TOKEN
   "_gotcha": "",                      // honeypot — must be empty
   "fields": {
     "email": "priya@abcfoundation.org",
@@ -83,6 +93,7 @@ Plain field JSON keyed by field id — no concept names, no Avni shapes.
 | 400 | `CAPTCHA_FAILED` | — | reset the captcha, ask again |
 | 403 | `REGISTRATION_CLOSED` | `{ "closesAt": "…" }` | closed screen |
 | 429 | — (nginx) | — | "Too many attempts — try again in a minute" |
+| 404 | `FORM_NOT_FOUND` | — | "no form here" screen; same for a missing, unknown or retired code |
 | 500 | `INTERNAL` | — | generic error, retry button |
 
 Honeypot filled → 200 `CREATED` with a fake reference; nothing is stored.

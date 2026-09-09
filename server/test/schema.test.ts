@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { submitSchema, fieldErrors } from "../src/validation/schema.js";
-import { submitBody, validFields, BYPASS } from "./helpers.js";
+import { submitBody, validFields, BYPASS, FORM_CODE } from "./helpers.js";
 
 describe("submit schema", () => {
   it("accepts a fully valid body", () => {
@@ -48,7 +48,7 @@ describe("submit schema", () => {
   });
 
   it("requires a captcha token", () => {
-    const body = { captchaToken: "", _gotcha: "", fields: validFields() };
+    const body = { code: FORM_CODE, captchaToken: "", _gotcha: "", fields: validFields() };
     expect(submitSchema.safeParse(body).success).toBe(false);
     expect(submitSchema.safeParse({ ...body, captchaToken: BYPASS }).success).toBe(true);
   });

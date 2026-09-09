@@ -2,6 +2,11 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FieldValues } from "../src/validation/schema.js";
+import { FORM_CODES } from "../src/forms/registry.js";
+
+// The code that maps to the Launchpad form; tests use the real registry so a
+// renamed code fails loudly here rather than silently in production.
+export const FORM_CODE = Object.keys(FORM_CODES)[0];
 
 export const AVNI_BASE = "http://avni.test";
 export const BYPASS = "test-bypass-token";
@@ -63,5 +68,5 @@ export function validFields(overrides: Partial<FieldValues> = {}): FieldValues {
 }
 
 export function submitBody(fieldOverrides: Partial<FieldValues> = {}, captchaToken: string = BYPASS) {
-  return { captchaToken, _gotcha: "", fields: validFields(fieldOverrides) };
+  return { code: FORM_CODE, captchaToken, _gotcha: "", fields: validFields(fieldOverrides) };
 }

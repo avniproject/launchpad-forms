@@ -6,6 +6,7 @@ import { allFields, type FieldSpec } from "../forms/launchpad-cohort.js";
 export type FieldValues = Record<string, string | number | boolean>;
 
 export interface SubmitBody {
+  code: string;
   captchaToken: string;
   _gotcha?: string;
   fields: FieldValues;
@@ -79,6 +80,8 @@ function buildFieldsSchema() {
 }
 
 export const submitSchema = z.object({
+  // Which form this submission is for; the route resolves it before parsing.
+  code: z.string().min(1),
   captchaToken: z.string().min(1),
   _gotcha: z.string().optional().default(""),
   fields: buildFieldsSchema(),

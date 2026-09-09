@@ -9,12 +9,14 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:4000}"
 BYPASS="${BYPASS:-${RECAPTCHA_BYPASS_TOKEN:-}}"
 EMAIL="${SMOKE_EMAIL:-smoke-test@launchpad.example.org}"
+# The form code; a form is reachable only at /<code>.
+CODE="${FORM_CODE:-k9m4x7qp2vhd}"
 
 echo "→ GET $BASE_URL/healthz"
 curl -fsS "$BASE_URL/healthz" | tee /dev/stderr | grep -q '"ok":true'
 
-echo "→ GET $BASE_URL/api/form-config"
-curl -fsS "$BASE_URL/api/form-config" | grep -q '"form":"launchpad-cohort"'
+echo "→ GET $BASE_URL/api/form-config?code=$CODE"
+curl -fsS "$BASE_URL/api/form-config?code=$CODE" | grep -q '"form":"launchpad-cohort"'
 
 if [ -z "$BYPASS" ]; then
   echo "RECAPTCHA_BYPASS_TOKEN not set — skipping submit test."
@@ -24,6 +26,7 @@ fi
 submit() {
   curl -fsS -X POST "$BASE_URL/api/submit" -H 'content-type: application/json' -d @- <<JSON
 {
+  "code": "$CODE",
   "captchaToken": "$BYPASS",
   "_gotcha": "",
   "fields": {

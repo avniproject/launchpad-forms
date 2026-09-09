@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useParams } from "react-router-dom";
 import { Alert, Box, Button, CircularProgress, Container, Link, Paper, Typography } from "@mui/material";
 import logo from "@/assets/avni-logo.png";
 import { useAsync } from "@/hooks/useAsync";
@@ -10,6 +11,7 @@ import { track } from "@/analytics";
 import { executeCaptcha, preloadCaptcha } from "@/captcha/enterprise";
 import { SuccessScreen } from "./SuccessScreen";
 import { ClosedScreen } from "./ClosedScreen";
+import { NoFormScreen } from "./NoFormScreen";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 const DRAFT_KEY = "launchpad-draft-v1";
@@ -31,8 +33,15 @@ function loadDraft(): FieldValues {
   }
 }
 
-async function fetchFormConfig(): Promise<FormConfig> {
-  const res = await fetch(`${API_BASE}/api/form-config`);
+// useAsync flattens errors to their message, so "no such form" travels as a
+// sentinel message rather than an Error subclass.
+export const FORM_NOT_FOUND = "FORM_NOT_FOUND";
+
+async function fetchFormConfig(formCode: string): Promise<FormConfig> {
+  const res = await fetch(`${API_BASE}/api/form-config?code=${encodeURIComponent(formCode)}`);
+  // 404 means no such form — a retired or mistyped code. That is a different
+  // thing from a network blip and must not offer a pointless Retry button.
+  if (res.status === 404) throw new Error(FORM_NOT_FOUND);
   if (!res.ok) throw new Error(`Could not load the form (HTTP ${res.status})`);
   return res.json() as Promise<FormConfig>;
 }
@@ -69,7 +78,8 @@ interface ErrorBody {
 }
 
 export function LaunchpadForm() {
-  const { data: config, error: configError, loading } = useAsync(fetchFormConfig, []);
+  const { code: formCode = "" } = useParams<{ code: string }>();
+  const { data: config, error: configError, loading } = useAsync(() => fetchFormConfig(formCode), [formCode]);
 
   const [values, setValues] = useState<FieldValues>(loadDraft);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -186,7 +196,7 @@ export function LaunchpadForm() {
       const res = await fetch(`${API_BASE}/api/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ captchaToken: token, _gotcha: gotcha, fields: payloadFields }),
+        body: JSON.stringify({ code: formCode, captchaToken: token, _gotcha: gotcha, fields: payloadFields }),
       });
 
       if (res.status === 200 || res.status === 202) {
@@ -252,6 +262,8 @@ export function LaunchpadForm() {
         <CircularProgress />
       </Box>
     );
+  } else if (configError === FORM_NOT_FOUND) {
+    content = <NoFormScreen />;
   } else if (configError || !config) {
     content = (
       <Alert
