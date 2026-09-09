@@ -5,6 +5,16 @@ import { FieldShell, type FieldProps } from "./FieldShell";
 
 // react-phone-number-input emits E.164 (e.g. +919876543210) — exactly what
 // the contract expects for `contactPhone`.
+//
+// Flags are suppressed. By default the library loads each flag as an <img>
+// from purecatamphetamine.github.io, which the CSP blocks (img-src is 'self',
+// data: and gstatic only) — that is what rendered a broken-image icon. The
+// alternatives were worse: bundling country-flag-icons pulls in 5.3 MB of
+// SVG for decoration, and widening img-src would leak every applicant's IP to
+// a third-party host from a page that collects personal data. The country
+// selector still lists full country names and dial codes, so nothing
+// functional is lost.
+const NoFlag = () => <></>;
 export function Phone({ field, value, error, onChange, onBlur }: FieldProps) {
   return (
     <FieldShell field={field} error={error}>
@@ -24,6 +34,7 @@ export function Phone({ field, value, error, onChange, onBlur }: FieldProps) {
       >
         <PhoneInput
           defaultCountry="IN"
+          flagComponent={NoFlag}
           value={typeof value === "string" && value ? value : undefined}
           onChange={(v) => onChange(v ?? "")}
           onBlur={onBlur}

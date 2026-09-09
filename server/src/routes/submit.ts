@@ -73,8 +73,15 @@ export function registerSubmit(app: FastifyInstance): void {
       return reply.code(403).send({ code: "REGISTRATION_CLOSED", closesAt: e.REG_CLOSE });
     }
 
-    if (!(await verifyCaptcha(parsed.data.captchaToken, e))) {
-      log("captcha_failed");
+    // Per-phase timing. A submission crosses two external systems (Google for
+    // the assessment, Avni for the two writes) and the total alone cannot say
+    // which one was slow — avni-server is known to sit near its capacity line
+    // during working hours, so attributing latency matters.
+    const captchaStart = Date.now();
+    const captchaOk = await verifyCaptcha(parsed.data.captchaToken, e);
+    const captchaMs = Date.now() - captchaStart;
+    if (!captchaOk) {
+      log("captcha_failed", { captchaMs });
       return reply.code(400).send({ code: "CAPTCHA_FAILED" });
     }
 
@@ -83,10 +90,16 @@ export function registerSubmit(app: FastifyInstance): void {
     const enrolment = buildEnrolmentPayload(fields, e);
 
     try {
+      const subjectStart = Date.now();
       await postSubject(subject, e);
+      const subjectMs = Date.now() - subjectStart;
+
+      const enrolmentStart = Date.now();
       const enrolmentRes = await postEnrolment(enrolment, e);
+      const enrolmentMs = Date.now() - enrolmentStart;
+
       const reference = referenceFrom(enrolmentRes.body, submissionId);
-      log("created", { avniStatus: enrolmentRes.status });
+      log("created", { avniStatus: enrolmentRes.status, captchaMs, subjectMs, enrolmentMs });
       return reply.code(200).send({ code: "CREATED", reference });
     } catch (err) {
       if (err instanceof AvniError) {
@@ -121,7 +134,7 @@ export function registerSubmit(app: FastifyInstance): void {
         if (err.kind === "auth" || (err.status !== null && err.status < 500)) {
           notify(err, { submissionId, avniStatus: err.status, kind: err.kind });
         }
-        log("queued", { avniStatus: err.status, error: err.message });
+        log("queued", { avniStatus: err.status, error: err.message, captchaMs });
         return reply.code(202).send({ code: "QUEUED", reference: `LP-Q-${shortHex(submissionId)}` });
       }
       notify(err, { submissionId });
