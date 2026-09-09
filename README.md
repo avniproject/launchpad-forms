@@ -17,6 +17,8 @@ The public signup page for the **Avni Launchpad** cohort programme — `forms.av
 |---|---|
 | [`docs/superpowers/specs/2026-08-28-launchpad-forms-design.md`](docs/superpowers/specs/2026-08-28-launchpad-forms-design.md) | The approved design: decisions, architecture, repo layout, service, page, infrastructure, Avni configuration, field inventory, testing, build-day plan, risks |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | The HTTP contract between the page and the service, and the **field → concept table** the App Designer configuration must match |
+| [`docs/LEARNINGS.md`](docs/LEARNINGS.md) | **What the build actually taught us** — reCAPTCHA key types, silent nginx and CSP traps, failures that hide behind a success screen, avni-server behaviours, and where the older documents are now wrong |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operating it: health, logs, dead letters, replay, rotating the credential, switching organisations |
 | [`docs/implementation-plan.md`](docs/implementation-plan.md) | The Avni-side model — organisation, program, encounters, status-by-evidence, Metabase — and the go-live checklist. Phases 4–5 point at the spec |
 
 ## Shape
@@ -56,15 +58,17 @@ CircleCI is now the CI, matching the rest of the Avni repos.
 |---|---|---|---|
 | 1 | Lane C: `avni-infra` role, nginx, ALB, dedicated node | Himesh / platform | ☑ **done** — role, playbook, host group, SG, target group, listener rule 33 |
 | 2 | Bugsnag projects + keys | Team | ☑ **done** — browser `314a2520…` in `prod_vars.yml`, Node `c2c9febf…` in the vault |
-| 3 | **Real reCAPTCHA secret + site key**; confirm the domain list covers `forms.avniproject.org` | Lane C + Google admin owner | ☐ **blocking** — until then `verifyCaptcha` fails closed and no real submission can succeed |
+| 3 | reCAPTCHA | Done | ☑ Enterprise score-based key in project `avni-be4b7`, assessment API, verified by a real browser submission |
 | 4 | Dead-letter alerting to email/Slack; interim: daily `wc -l` (see RUNBOOK) | Ops | ☐ day-2 |
-| 5 | **Rotate the UAT integration password — COMPROMISED.** It was committed to this public repo in plaintext on 9 Sep 2026 (commit `d8c8df4`) and remains in git history; rotation is a security fix, not housekeeping. Also create the prod org + user with a strong password | Nupoor | ☐ **blocking** |
+| 5 | UAT password rotated 9 Sep 2026 after being committed to this public repo in plaintext (`d8c8df4`, still in git history — never reuse it). Prod org + user still to create, with a strong password | Nupoor | ☑ UAT · ☐ prod |
 | 6 | Updated banner image for "West and East India" (page still ships the Eastern-India banner) | Launchpad team | ☐ pending |
 | 7 | UAT → prod bundle export/import + prod org Metabase setup | Nupoor | ☐ — see the bundle-import hazard below |
 | 8 | Cohort 4 Google Form → Avni import script | Day-2 | ☐ not started |
-| 9 | Public DNS record for `forms.avniproject.org` → soft launch | Himesh | ☐ deliberate hold |
-| 10 | **UAT org config fixes** — `API Integration` group has `hasAllPrivileges: true`; `Referral source` is on the enrolment form twice; no catchment exists; `allowMultipleEnrolments` is off | Nupoor | ☐ **must land before the prod bundle export** |
-| 11 | Delete `.github/workflows/ci.yml` once CircleCI has run green | Himesh | ☐ |
+| 9 | Public DNS | Done | ☑ alias A record → `reporting-alb`, live |
+| 10 | UAT org config — privileges narrowed, duplicate `Referral source` voided, catchment created, `allowMultipleEnrolments` on | Nupoor | ☑ all four |
+| 11 | CI moved to CircleCI, GitHub Actions workflow removed | Himesh | ☑ |
+| 12 | **Replace the placeholder form code `k9m4x7qp2vhd`** in `server/src/forms/registry.ts` before the link is shared | Himesh | ☐ |
+| 13 | Switch to the prod org: create org + user, purge the dead-letter file first, export a fresh bundle (reconcile settings on UAT *before* export — it replaces the block wholesale) | Nupoor / Himesh | ☐ |
 
 **Bundle-import hazard** (`avni-product-ops/sops/tanuh-prod-deploy.md`, golden
 rule 1): a bundle upload **replaces the org settings block completely — it does
