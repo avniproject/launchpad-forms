@@ -38,7 +38,11 @@ export function validateEmail(email: string): ValidationResult {
   }
 
   if (domain && COMMON_TYPOS[domain]) {
-    errors.push(`Did you mean ${email.replace(domain, COMMON_TYPOS[domain])}?`);
+    // Rebuild from the local part: a `replace` of the lower-cased domain
+    // misses when the user typed it in caps, and the suggestion then reads
+    // back exactly what they entered while still blocking the form.
+    const localPart = email.slice(0, email.lastIndexOf("@"));
+    errors.push(`Did you mean ${localPart}@${COMMON_TYPOS[domain]}?`);
   }
 
   return { isValid: errors.length === 0, errors };
@@ -59,7 +63,11 @@ export function validateName(name: string, fieldName: string, disallowNumbers = 
     return { isValid: false, errors: [`${fieldName} is required`] };
   }
 
-  const nameRegex = disallowNumbers ? /^[a-zA-Z\s\-'.]+$/ : /^[a-zA-Z0-9\s\-'.]+$/;
+  // Unicode letters + combining marks, not ASCII: the applicants are Indian
+  // NGOs, so "Renée", "Sreeja Menon" and names in Devanagari, Odia or Gujarati
+  // are all legitimate. An ASCII-only class rejected them client-side while
+  // the server accepted them, leaving the applicant unable to submit at all.
+  const nameRegex = disallowNumbers ? /^[\p{L}\p{M}\s\-'.]+$/u : /^[\p{L}\p{M}\p{N}\s\-'.]+$/u;
   const allowedChars = disallowNumbers
     ? "letters, spaces, hyphens and apostrophes"
     : "letters, numbers, spaces, hyphens and apostrophes";

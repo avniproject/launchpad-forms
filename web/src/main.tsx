@@ -13,7 +13,8 @@ if (bugsnagKey) {
   Bugsnag.start({
     apiKey: bugsnagKey,
     plugins: [new BugsnagPluginReact()],
-    releaseStage: import.meta.env.MODE,
+    // MODE is "production" for any vite build, UAT included.
+    releaseStage: (import.meta.env.VITE_RELEASE_STAGE as string) || import.meta.env.MODE,
   });
 }
 

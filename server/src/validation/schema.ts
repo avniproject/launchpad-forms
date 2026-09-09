@@ -16,7 +16,7 @@ function countWords(text: string): number {
   return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
-function fieldSchema(field: FieldSpec): z.ZodTypeAny {
+function baseFieldSchema(field: FieldSpec): z.ZodTypeAny {
   switch (field.type) {
     case "email":
       return z.string().trim().min(1, "Required").email("Enter a valid email address");
@@ -46,6 +46,16 @@ function fieldSchema(field: FieldSpec): z.ZodTypeAny {
     default:
       return z.string().trim().min(1, "Required").max(5000);
   }
+}
+
+// `required` was only honoured for checkboxes: every other type carried an
+// unconditional .min(1)/regex/enum, so a field declared optional would render
+// without a * , pass client validation blank, and then be rejected here with
+// "Required" — an error the applicant cannot clear.
+function fieldSchema(field: FieldSpec): z.ZodTypeAny {
+  const base = baseFieldSchema(field);
+  if (field.required || field.type === "checkbox") return base;
+  return z.union([z.literal(""), base]).optional();
 }
 
 function buildFieldsSchema() {

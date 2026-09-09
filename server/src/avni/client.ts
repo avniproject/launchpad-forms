@@ -49,8 +49,9 @@ function nowISTISO(): string {
 }
 
 function conceptValue(value: string | number | boolean): string | number {
-  // Checkboxes are stored as the coded answer "Yes"; they can only reach here
-  // as true — false fails validation on required checkboxes.
+  // Checkboxes are stored as the coded answer "Yes". `false` never reaches
+  // here — observations() drops it, so an unticked optional box records
+  // nothing rather than a spurious "Yes".
   if (typeof value === "boolean") return "Yes";
   return value;
 }
@@ -59,7 +60,9 @@ function observations(fields: FieldValues, mapping: Record<string, string>): Rec
   const out: Record<string, string | number> = {};
   for (const [fieldId, conceptName] of Object.entries(mapping)) {
     const value = fields[fieldId];
-    if (value === undefined || value === "") continue; // e.g. referralSourceOther when not "Other"
+    // "" e.g. referralSourceOther when not "Other"; false = an unticked
+    // optional checkbox, which must not become "Yes".
+    if (value === undefined || value === "" || value === false) continue;
     out[conceptName] = conceptValue(value);
   }
   return out;
@@ -126,12 +129,16 @@ async function avniPost(path: string, payload: unknown, e: Env): Promise<AvniRes
       throw new AvniError(`Avni unreachable: ${String(err)}`, null, "");
     }
 
+    // Drain before retrying: undici holds the socket open until an unread
+    // body is GC'd, so a retry loop leaks connections without this.
     if (res.status === 401 && !refreshed) {
       refreshed = true;
       clearToken();
+      await res.arrayBuffer().catch(() => undefined);
       continue;
     }
     if (res.status >= 500 && attempt < backoff.length) {
+      await res.arrayBuffer().catch(() => undefined);
       await new Promise((r) => setTimeout(r, backoff[attempt++]));
       continue;
     }

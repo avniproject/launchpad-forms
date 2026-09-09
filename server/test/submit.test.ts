@@ -70,6 +70,22 @@ describe("POST /api/submit", () => {
     expect(entry.error.status).toBe(503);
   }, 15_000);
 
+  it("dead-letter write fails → 500 INTERNAL, never a 202 that claims capture", async () => {
+    // A path whose parent is a file, so mkdir fails ENOTDIR — the shape of an
+    // unwritable state dir under ProtectSystem=strict on a fresh deploy.
+    setTestEnv({ DEAD_LETTER_PATH: "/dev/null/nope/dead-letter.jsonl" });
+    resetTokenState();
+    mockToken();
+    nock(AVNI_BASE).post("/api/subject").times(3).reply(503);
+
+    const app = buildApp();
+    const res = await app.inject({ method: "POST", url: "/api/submit", payload: submitBody() });
+
+    // 202 QUEUED promises the application is durably captured. It isn't.
+    expect(res.statusCode).toBe(500);
+    expect(res.json().code).toBe("INTERNAL");
+  }, 15_000);
+
   it("token endpoint unreachable → 202 QUEUED + dead-letter, never a 500", async () => {
     nock(AVNI_BASE).post("/api/user/generateToken").times(3).replyWithError("ECONNREFUSED");
 

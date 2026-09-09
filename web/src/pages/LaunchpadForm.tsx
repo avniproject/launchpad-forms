@@ -4,7 +4,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 import logo from "@/assets/avni-logo.png";
 import { useAsync } from "@/hooks/useAsync";
 import { FormRenderer } from "@/forms/FormRenderer";
-import { effectiveFields } from "@/forms/effectiveFields";
+import { effectiveFields, otherActive } from "@/forms/effectiveFields";
 import type { FieldErrors, FieldValue, FieldValues, FormConfig, SubmitOk } from "@/forms/types";
 import { validateField } from "@/validation/validators";
 import { track } from "@/analytics";
@@ -159,7 +159,14 @@ export function LaunchpadForm() {
     const payloadFields: FieldValues = { ...values };
     for (const section of config.sections) {
       for (const field of section.fields) {
-        if (field.other) payloadFields[`${field.id}Other`] = values[`${field.id}Other`] ?? "";
+        if (!field.other) continue;
+        // Send the typed value only while "Other" is still selected. Without
+        // this, choosing Other, typing, then switching back leaves the stale
+        // text in `values` and Avni records both the coded answer and a
+        // contradicting "<concept> other".
+        payloadFields[`${field.id}Other`] = otherActive(field, values)
+          ? values[`${field.id}Other`] ?? ""
+          : "";
       }
     }
 
@@ -219,9 +226,14 @@ export function LaunchpadForm() {
     }
   };
 
-  const closesFormatted = config
-    ? new Date(config.closesAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
-    : "";
+  // REG_CLOSE defaults to "" and windowOpen treats that as open-ended, so an
+  // unguarded format renders "Applications close Invalid Date" to every
+  // applicant. No date -> drop the clause entirely.
+  const closesDate = config?.closesAt ? new Date(config.closesAt) : null;
+  const closesFormatted =
+    closesDate && !Number.isNaN(closesDate.getTime())
+      ? closesDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+      : "";
 
   let content;
   if (loading) {
@@ -352,7 +364,7 @@ export function LaunchpadForm() {
           {config && !loading && (
             <Typography sx={{ color: "text.secondary", fontSize: 14, mt: 0.5 }}>
               {config.cohort}
-              {config.open && !closedAt && !result ? ` · Applications close ${closesFormatted}` : ""}
+              {config.open && !closedAt && !result && closesFormatted ? ` · Applications close ${closesFormatted}` : ""}
             </Typography>
           )}
         </Box>

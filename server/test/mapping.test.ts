@@ -88,3 +88,21 @@ describe("enrolment payload", () => {
     expect(withOther.observations["Referral source other"]).toBe("A friend");
   });
 });
+
+describe("optional checkbox values", () => {
+  it("an unticked (false) checkbox records no observation, not \"Yes\"", () => {
+    setTestEnv();
+    // conceptValue maps every boolean to "Yes", so the skip guard — which
+    // only caught undefined and "" — would have written "Yes" for a box the
+    // applicant deliberately left unticked. Latent today (both checkboxes are
+    // required), live the moment an optional one is added.
+    const payload = buildSubjectPayload(validFields({ privacyConsent: false }), env());
+    expect(payload.observations).not.toHaveProperty("Consent to data use");
+  });
+
+  it("a ticked checkbox still records the coded answer \"Yes\"", () => {
+    setTestEnv();
+    const payload = buildSubjectPayload(validFields({ privacyConsent: true }), env());
+    expect(payload.observations["Consent to data use"]).toBe("Yes");
+  });
+});
