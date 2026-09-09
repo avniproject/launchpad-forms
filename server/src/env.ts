@@ -9,6 +9,7 @@ export interface Env {
   RECAPTCHA_SITE_KEY: string;
   RECAPTCHA_API_KEY: string;
   RECAPTCHA_MIN_SCORE: number;
+  RECAPTCHA_ACTION: string;
   RECAPTCHA_BYPASS_TOKEN: string;
   BUGSNAG_KEY: string;
   RELEASE_STAGE: string;
@@ -37,6 +38,9 @@ export function env(): Env {
     // Only applied when the assessment actually returns a score (score-type
     // keys). Checkbox keys return validity alone.
     RECAPTCHA_MIN_SCORE: Number(e.RECAPTCHA_MIN_SCORE ?? 0.5),
+    // Must match the action the page passes to grecaptcha.enterprise.execute.
+    // Checking it stops a token minted elsewhere being replayed here.
+    RECAPTCHA_ACTION: e.RECAPTCHA_ACTION ?? "submit",
     RECAPTCHA_BYPASS_TOKEN: e.RECAPTCHA_BYPASS_TOKEN ?? "",
     BUGSNAG_KEY: e.BUGSNAG_KEY ?? "",
     // Separate from NODE_ENV: both UAT and prod run NODE_ENV=production,

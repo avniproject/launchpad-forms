@@ -71,6 +71,24 @@ describe("verifyCaptcha", () => {
       expect(await verifyCaptcha("tok", env())).toBe(true);
     });
 
+    it("rejects a token minted for a different action", async () => {
+      // Google's own sample checks this: it stops a token obtained on another
+      // page of the site being replayed against /api/submit.
+      enterpriseEnv({ RECAPTCHA_BYPASS_TOKEN: "", RECAPTCHA_ACTION: "submit" });
+      nock(ENTERPRISE_HOST).post(/assessments/).query(true)
+        .reply(200, { tokenProperties: { valid: true, action: "login" }, riskAnalysis: { score: 0.9 } });
+      expect(await verifyCaptcha("tok", env())).toBe(false);
+    });
+
+    it("accepts a token whose action matches, and sends expectedAction", async () => {
+      enterpriseEnv({ RECAPTCHA_BYPASS_TOKEN: "", RECAPTCHA_ACTION: "submit" });
+      nock(ENTERPRISE_HOST)
+        .post(/assessments/, (b) => b.event.expectedAction === "submit")
+        .query(true)
+        .reply(200, { tokenProperties: { valid: true, action: "submit" }, riskAnalysis: { score: 0.9 } });
+      expect(await verifyCaptcha("tok", env())).toBe(true);
+    });
+
     it("rejects an invalid token", async () => {
       enterpriseEnv({ RECAPTCHA_BYPASS_TOKEN: "" });
       nock(ENTERPRISE_HOST).post(/assessments/).query(true)

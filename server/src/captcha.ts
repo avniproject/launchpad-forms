@@ -42,8 +42,9 @@ export async function verifyCaptcha(token: string, e: Env): Promise<boolean> {
 // Response: { tokenProperties: { valid, invalidReason }, riskAnalysis: { score } }
 // A checkbox key returns validity with no score; a score key returns both, so
 // the score gate only applies when a score is actually present.
-// expectedAction is deliberately NOT sent: actions are unsupported for
-// explicitly rendered checkbox widgets, which is what the page uses.
+// The page uses a score-based key, so the token carries an action. Google's
+// own sample checks it, and so do we: it is what stops a token minted on
+// another page of the site being replayed against this endpoint.
 async function verifyEnterprise(token: string, e: Env): Promise<boolean> {
   const url =
     `https://recaptchaenterprise.googleapis.com/v1/projects/${encodeURIComponent(e.RECAPTCHA_PROJECT_ID)}` +
@@ -52,7 +53,7 @@ async function verifyEnterprise(token: string, e: Env): Promise<boolean> {
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ event: { token, siteKey: e.RECAPTCHA_SITE_KEY } }),
+      body: JSON.stringify({ event: { token, siteKey: e.RECAPTCHA_SITE_KEY, expectedAction: e.RECAPTCHA_ACTION } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {
@@ -63,11 +64,16 @@ async function verifyEnterprise(token: string, e: Env): Promise<boolean> {
       return false;
     }
     const body = (await res.json()) as {
-      tokenProperties?: { valid?: boolean; invalidReason?: string };
+      tokenProperties?: { valid?: boolean; invalidReason?: string; action?: string };
       riskAnalysis?: { score?: number };
     };
     if (body.tokenProperties?.valid !== true) {
       logger.info({ invalidReason: body.tokenProperties?.invalidReason }, "captcha token invalid");
+      return false;
+    }
+    const action = body.tokenProperties?.action;
+    if (e.RECAPTCHA_ACTION && action && action !== e.RECAPTCHA_ACTION) {
+      logger.info({ action, expected: e.RECAPTCHA_ACTION }, "captcha action mismatch");
       return false;
     }
     const score = body.riskAnalysis?.score;
