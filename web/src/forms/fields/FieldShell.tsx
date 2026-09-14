@@ -1,6 +1,7 @@
 import { Box, Typography } from "@mui/material";
 import type { ReactNode } from "react";
 import type { FieldSpec, FieldValue } from "@/forms/types";
+import { linkify } from "@/forms/linkify";
 
 export interface FieldProps {
   field: FieldSpec;
@@ -32,7 +33,7 @@ export function FieldShell({ field, error, hideLabel, children }: ShellProps) {
       )}
       {field.description && (
         <Typography sx={{ fontSize: 13, color: "text.secondary", mb: 1, whiteSpace: "pre-line" }}>
-          {field.description}
+          {linkify(field.description)}
         </Typography>
       )}
       {children}

@@ -19,9 +19,10 @@ holding it can submit.
 {
   "form": "launchpad-cohort",
   "cohort": "Cohort 4",
-  "title": "Avni Launchpad 4.0 – Eastern India Cohort",   // optional page heading
+  "title": "Avni Launchpad 4.0 – West & East India Cohort",  // optional page heading
   "description": "…",                 // optional Google-Forms-style intro under the heading;
-                                      // blank lines separate paragraphs, URLs/emails auto-linked
+                                      // blank lines separate paragraphs, single newlines are line breaks,
+                                      // and [label](url) / URLs / emails become links
   "open": true,                       // false → the page shows the closed screen
   "closesAt": "2026-10-05T23:59:59+05:30",
   "sections": [
@@ -38,7 +39,7 @@ holding it can submit.
 }
 ```
 
-Field `type` ∈ `text` · `email` · `phone` · `number` (optional `min`, `max`) · `notes` (multi-line, with optional `maxWords`) · `radio` · `select` · `checkbox` (single agreement box). A field may carry an optional `description` (helper text under the label). A `radio`/`select` may set `"other": true`, which adds a free-text `<id>Other` field when the last option is chosen.
+Field `type` ∈ `text` · `email` · `phone` · `number` (optional `min`, `max`) · `notes` (multi-line, with optional `maxWords`) · `radio` · `select` · `checkbox` (single agreement box). A field may carry an optional `description` (helper text under the label). Both `description` fields and the form-level `description` may contain links: `[label](https://…)`, bare URLs and email addresses are turned into links by the page. A `radio`/`select` may set `"other": true`, which adds a free-text `<id>Other` field when the last option is chosen.
 
 ## 2. `POST /api/submit`
 
@@ -104,7 +105,7 @@ Honeypot filled → 200 `CREATED` with a fake reference; nothing is stored.
 
 ## 4. What the service sends to Avni
 
-Default API version (no `?version` parameter). Header `AUTH-TOKEN: <jwt>` from `POST /api/user/generateToken` `{ "username", "password" }` → `{ "token" }`.
+Default API version (no `?version` parameter). Header `AUTH-TOKEN: <jwt>` from `POST /api/user/generateToken` `{ "username", "password" }` → `{ "authToken" }` (verified against the live server 9 Sep 2026; the client also accepts `token`).
 
 ```jsonc
 // POST /api/subject

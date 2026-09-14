@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, Box, Button, CircularProgress, Container, Link, Paper, Typography } from "@mui/material";
 import logo from "@/assets/avni-logo.png";
@@ -6,6 +6,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { FormRenderer } from "@/forms/FormRenderer";
 import { effectiveFields, otherActive } from "@/forms/effectiveFields";
 import type { FieldErrors, FieldValue, FieldValues, FormConfig, SubmitOk } from "@/forms/types";
+import { linkify } from "@/forms/linkify";
 import { validateField } from "@/validation/validators";
 import { track } from "@/analytics";
 import { executeCaptcha, preloadCaptcha } from "@/captcha/enterprise";
@@ -48,27 +49,6 @@ async function fetchFormConfig(formCode: string): Promise<FormConfig> {
 
 function scrollToField(id: string): void {
   document.getElementById(`field-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-// Turn bare URLs and email addresses in the intro text into links.
-function linkify(text: string): ReactNode[] {
-  return text.split(/(https?:\/\/[^\s]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g).map((part, i) => {
-    if (/^https?:\/\//.test(part)) {
-      return (
-        <Link key={i} href={part} target="_blank" rel="noopener noreferrer">
-          {part}
-        </Link>
-      );
-    }
-    if (/^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(part)) {
-      return (
-        <Link key={i} href={`mailto:${part}`}>
-          {part}
-        </Link>
-      );
-    }
-    return part;
-  });
 }
 
 interface ErrorBody {
@@ -416,6 +396,9 @@ export function LaunchpadForm() {
                   fontSize: 14,
                   lineHeight: 1.6,
                   fontWeight: i === 0 ? 600 : 400,
+                  // Keeps single newlines inside a paragraph as line breaks,
+                  // so list-style lines (e.g. workshop dates) stay separate.
+                  whiteSpace: "pre-line",
                   mb: 1.5,
                   "&:last-child": { mb: 0 },
                 }}

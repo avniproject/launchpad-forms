@@ -117,7 +117,7 @@ export const SECTIONS: SectionSpec[] = [
         description: "Ahmedabad: 16th & 17th November · Bhubaneswar: 19th & 20th November.",
         options: ["Ahmedabad", "Bhubaneswar"] },
       { id: "pricingUnderstood", label: "Have you looked at the pricing of Avni and is it clear to you?", type: "radio", required: true,
-        description: "Details in the Avni Launchpad blog linked in the description.",
+        description: "Pricing details are on the [Avni pricing page](https://avniproject.org/pricing/).",
         options: ["Yes", "No"] },
       { id: "paidPlanIntent", label: "After the cohort and pilot completes successfully (mid-December), are you comfortable to take a paid plan to sustain Avni?", type: "radio", required: true,
         options: ["Yes", "No", "I would like to discuss more"] },
@@ -138,17 +138,26 @@ export const SECTIONS: SectionSpec[] = [
   },
 ];
 
-export const FORM_TITLE = "Avni Launchpad 4.0 – West and East India Cohort";
+export const FORM_TITLE = "Avni Launchpad 4.0 – West & East India Cohort";
 
+// Verbatim from the live Google Form intro (synced 10 Sep 2026). Blank
+// lines separate paragraphs; single newlines are kept as line breaks by the
+// page, so the workshop dates render as their own lines.
 export const FORM_DESCRIPTION = [
-  "Digitize. Pilot. Transform.",
-  "Avni Launchpad 4.0 is the West and East India Cohort, running from two regional hubs — Ahmedabad and Bhubaneswar — with a special focus on organisations working across Western and Eastern India, including those serving rural, remote and low-connectivity communities.",
-  "Avni Launchpad is a cohort-based program for NGOs, social enterprises, CSR teams, funders and technology consultants who want to strengthen social-impact programs through better digital systems. Selected participants receive hands-on mentoring, implementation guidance and access to the Avni platform to design, build and test a real digital pilot for one of their own programs.",
+  "**Accelerate Your Organisation’s Digital Transformation with Avni Launchpad**",
+  "**Avni Launchpad 4.0 is an India-wide cohort with two in-person workshop hubs — Ahmedabad and Bhubaneswar.** Organisations from across India are welcome to apply. Based on geography and suitability, selected organisations will participate in the workshop location that is most relevant to them.",
+  "Avni Launchpad is a cohort-based program for NGOs, foundations, social enterprises and other social-impact organisations looking to digitise their field programs.",
+  "Over a focused **8-week journey**, selected organisations receive hands-on mentoring, structured implementation support and access to Avni to design, build and launch a real working digital pilot for one of their programs. Overall, this represents support worth over ₹1 lakh.",
   "Avni is best suited for field-based programs that involve regular data collection, beneficiary or household tracking, service delivery, follow-ups, monitoring and reporting.",
-  "Important: Launchpad allows organisations to test Avni before deciding whether to continue with it. Participation includes free hosting, platform access, mentoring and support during the pilot period, along with a 10% discount on annual subscription plans for organisations that onboard before the cohort concludes. Continued use of Avni after the Launchpad is paid.",
-  "The 2-day in-person workshops will be held in Ahmedabad (16th & 17th November) and Bhubaneswar (19th & 20th November).",
-  'For questions, please contact avnipartnerships@samanvayfoundation.org with "Avni Launchpad" in the subject line. You can also WhatsApp / contact: 91-8905279137.',
-  "Applications close: 5 October 2026, 11:59 PM IST. Website: https://avniproject.org/",
+  "**Important:** Launchpad allows organisations to test Avni before deciding whether to continue with it. Participation in the cohort includes free platform access, mentoring and support during the pilot period. **Continued use of Avni after the Launchpad is [paid](https://avniproject.org/pricing/).**",
+  "The in-person Avni Launchpad workshops are tentatively planned for:",
+  "**Ahmedabad:** 16–17 November 2026",
+  "**Bhubaneswar:** 19–20 November 2026",
+  "Applicants will be asked to indicate their preferred workshop location in the application form.",
+  "For **more details**, read [here](https://avniproject.org/blog/2026-09-09-avni-launchpad-cohort-4-announcement/).",
+  "For questions, please contact: avnilaunchpad@samanvayfoundation.org with “Avni Launchpad” in the subject line. You can also WhatsApp/contact us at **+91 89052 79137**.",
+  "**Applications close: 5th October 2026, 11:59 PM IST.**",
+  "**Website:** <https://avniproject.org/>",
 ].join("\n\n");
 
 export function allFields(): FieldSpec[] {
