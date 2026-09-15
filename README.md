@@ -29,7 +29,9 @@ server/  small Fastify service: verifies the captcha, holds the Avni credential,
          gets a token from POST /api/user/generateToken, posts subject + enrolment
 ```
 
-Both are served from one nginx on Avni's reporting node behind the shared load balancer, deployed by `avni-infra` (`roles/launchpad_forms`, cloned from the tanuh-webapp role). UAT (`uat-forms.avniproject.org`, tracks `main`, writes to the `Avni Launchpad UAT` organisation) and prod (`forms.avniproject.org`, pinned to a release tag).
+Both are served from one nginx on a **dedicated node** behind the shared reporting load balancer — deliberately not Avni's reporting node itself, which already runs close to its CPU limit next to a memory-sensitive Metabase. Deployed by `avni-infra` (`roles/launchpad_forms`).
+
+**One instance, two organisations — not two hosted instances.** The same node is pointed at `Avni Launchpad UAT` for validation and switched to the live `Avni Launchpad` org for real applicants; `launchpad_forms_avni_org` is the only switch. UAT tracks `main`; prod is pinned to a release tag (`v0.1.0` currently). See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for both deploy commands.
 
 ## Status
 
